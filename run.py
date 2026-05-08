@@ -172,7 +172,7 @@ def main():
 
     # Initialize appropriate adapter
     if args.format == "csv":
-        df = pd.read_csv(args.input)
+        df = pd.read_csv(args.input, sep=';')
         adapter = DataFrameAdapter(
             df=df,
             report_type_column=args.report_type_key,

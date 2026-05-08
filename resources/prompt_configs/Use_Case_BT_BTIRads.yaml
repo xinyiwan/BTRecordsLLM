@@ -1,0 +1,215 @@
+field_instructions:
+
+  - name: "Radiology Request Reason"
+    type: "string"
+    options:
+      - "Suspicion of tumor"
+      - "Metastasis"
+      - "Follow-up"
+      - "Recurrent tumor"
+      - "Incidental finding"
+      - "Not specified"
+    default: "Not specified"
+    chain_order: 1
+
+  - name: "Patient Symptoms"
+    type: "list"
+    options:
+      - "Pain"
+      - "Swelling"
+      - "Pathological fracture"
+      - "Immobilization"
+      - "Scoliosis"
+      - "Limping"
+      - "Cord compression"
+      - "Other"
+    constraints: "List all symptoms mentioned in the report. Use standardized UMLS terms where possible. Use an empty list if no symptoms are described."
+    default: []
+    chain_order: 2
+
+
+  - name: "Is the lesion an incidental finding?"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+    default: "Not specified"
+    chain_order: 2
+
+  - name: "Skeletal Location"
+    type: "string"
+    constraints: "Use a standard UMLS-based anatomical term for the specific bone or skeletal region (e.g., 'Femur', 'Tibia', 'Lumbar spine', 'Proximal humerus')"
+    default: "Not specified"
+    required: true
+    chain_order: 3
+
+  - name: "Location within bone"
+    type: "string"
+    options:
+      - "Epiphysis"
+      - "Metaphysis"
+      - "Diaphysis"
+      - "Epiphysis and metaphysis"
+      - "Metaphysis and diaphysis"
+      - "Not applicable"
+      - "Not specified"
+    default: "Not specified"
+    chain_order: 3
+
+  - name: "Lesion Matrix"
+    type: "string"
+    options:
+      - "Bone matrix"
+      - "Cartilage matrix"
+      - "Fibrous matrix"
+      - "Fatty tissue"
+      - "Mixed"
+      - "No matrix"
+      - "Not specified"
+    constraints: |
+      The predominant matrix type visible on imaging.
+      Bone matrix: sclerotic/osteoid mineralization, cloud-like or ivory density.
+      Cartilage matrix: rings-and-arcs calcification, popcorn calcification.
+      Fibrous tissue: ground-glass opacity, narrow zone of transition.
+      Fatty tissue: signal consistent with fat on MRI or low density on CT.
+    default: "Not specified"
+    chain_order: 3
+
+  - name: "Surrounding bone reaction"
+    type: "list"
+    options:
+      - "Periosteal reaction"
+      - "Cortical erosion"
+      - "Cortical thickening"
+      - "Reactive sclerosis"
+      - "Bone marrow edema"
+      - "None"
+    constraints: "List all bone reactions described in the imaging report. Use an empty list only if the report explicitly states no reaction is present."
+    default: []
+    chain_order: 4
+
+
+  - name: "Quality Check"
+    type: "string"
+    constraints: |
+      Evaluate the report for logical consistency and medical plausibility.
+      Flag unclear or contradictory findings.
+      Briefly explain any quality concerns identified.
+    default: "No issues detected"
+    chain_order: 7
+
+
+task: |
+  The input reports are in Spanish. All output values must be in English regardless of the input language.
+  The output could be from the provided options, it can also be free text interpreted from the reports.
+  Extract information into this exact JSON structure:
+  ```json
+  {
+      "Radiology Request Reason": "",
+      "Patient Symptoms": [],
+      "Is the lesion an incidental finding?": "",
+      "Skeletal Location": "",
+      "Location within bone": "",
+      "Lesion Matrix": "",
+      "Surrounding bone reaction": [],
+      "Quality Check": ""
+  }```
+
+examples:
+  - input: |
+      anonymized for github
+    reasoning: |
+      - The clinical indication mentions pain and swelling in the knee for several weeks; therefore "Patient Symptoms" includes ["Pain", "Swelling"].
+      - The radiology was ordered to evaluate a suspected tumor, so "Radiology Request Reason" is "Suspicion of tumor".
+      - The report describes an aggressive lesion in the distal femur with osteoid matrix production, consistent with osteosarcoma; "Disease Type" is "Osteosarcoma".
+      - Osteosarcoma is a primary bone tumor, so "Is it a bone tumor?" is "Yes".
+      - The diagnosis is presented as a differential pending biopsy, so "Is it suspected or confirmed?" is "Suspected".
+      - The lesion was found because of clinical symptoms, so "Is the lesion an incidental finding?" is "No".
+      - The lesion is centered in the distal femur, so "Skeletal Location" is "Distal femur".
+      - The lesion is in the metaphysis of the distal femur, so "Location within bone" is "Metaphysis".
+      - The report describes cloud-like osteoid mineralization, consistent with "Bone matrix".
+      - The report describes periosteal reaction (Codman triangle) and cortical erosion, so "Surrounding bone reaction" is ["Periosteal reaction", "Cortical erosion"].
+      - The lesion has an ill-defined border and permeative pattern, so "Margins and bone destruction pattern" is ["Wide transitional zone", "Permeative bone destruction"].
+      - The extracted data is internally consistent: an aggressive metaphyseal lesion in the distal femur with osteoid matrix, periosteal reaction, and permeative destruction is characteristic of osteosarcoma. No contradictions.
+    output: |
+      ```json
+      {
+        "Radiology Request Reason": "Suspicion of tumor",
+        "Patient Symptoms": ["Pain", "Swelling"],
+        "Disease Type": "Osteosarcoma",
+        "Disease Type differential diagnosis": ["Telangiectatic osteosarcoma", "Chondrosarcoma"],
+        "Is it a bone tumor?": "Yes",
+        "Is it suspected or confirmed?": "Suspected",
+        "Is the lesion an incidental finding?": "No",
+        "Is it benign or malignant?": "Malignant",
+        "Skeletal Location": "Distal femur",
+        "Location within bone": "Metaphysis",
+        "Lesion Matrix": "Bone matrix",
+        "Surrounding bone reaction": ["Periosteal reaction", "Cortical erosion"],
+        "Margins and bone destruction pattern": ["Wide transitional zone", "Permeative bone destruction"],
+        "Quality Check": "The extracted data is consistent with the imaging report. The aggressive features are internally coherent with a malignant primary bone tumor. Histological confirmation is pending."
+      }```
+
+  - input: |
+      anonymized for github
+    reasoning: |
+      - The radiology was performed as a routine hand X-ray for an unrelated complaint; the lesion was not clinically suspected, so "Radiology Request Reason" is "Incidental finding".
+      - No symptoms related to the lesion are mentioned; "Patient Symptoms" is [].
+      - The report describes a well-defined lytic lesion in the proximal phalanx with rings-and-arcs calcification, most consistent with enchondroma; "Disease Type" is "Enchondroma".
+      - Enchondroma is a primary bone tumor, so "Is it a bone tumor?" is "Yes".
+      - The radiologist states the appearance is typical for enchondroma; "Is it suspected or confirmed?" is "Confirmed".
+      - The lesion was found incidentally, so "Is the lesion an incidental finding?" is "Yes".
+      - The lesion is in the proximal phalanx of the index finger; "Skeletal Location" is "Proximal phalanx of index finger".
+      - The lesion occupies the diaphysis of the phalanx; "Location within bone" is "Diaphysis".
+      - Rings-and-arcs calcification is characteristic of cartilage; "Lesion Matrix" is "Cartilage matrix".
+      - No periosteal reaction or cortical breach is described; "Surrounding bone reaction" is ["None"].
+      - The lesion has a well-defined sclerotic border and narrow transitional zone; "Margins and bone destruction pattern" is ["Sclerotic rim", "Narrow transitional zone"].
+      - All imaging features are internally consistent with a benign cartilaginous lesion. No quality issues detected.
+    output: |
+      ```json
+      {
+        "Radiology Request Reason": "Incidental finding",
+        "Patient Symptoms": [],
+        "Disease Type": "Enchondroma",
+        "Is it a bone tumor?": "Yes",
+        "Is it suspected or confirmed?": "Confirmed",
+        "Is the lesion an incidental finding?": "Yes",
+        "Skeletal Location": "Proximal phalanx of index finger",
+        "Location within bone": "Diaphysis",
+        "Lesion Matrix": "Cartilage matrix",
+        "Surrounding bone reaction": ["None"],
+        "Margins and bone destruction pattern": ["Sclerotic rim", "Narrow transitional zone"],
+        "Quality Check": "The extracted data is consistent with the imaging report. All features support a benign enchondroma. No issues detected."
+      }```
+
+  - input: |
+      anonymized for github
+    reasoning: |
+      - The clinical indication is pain and swelling around the knee; "Patient Symptoms" includes ["Pain", "Swelling"].
+      - The request was made due to clinical suspicion of a bone lesion; "Radiology Request Reason" is "Suspicion of tumor".
+      - The report describes a lytic epiphyseal lesion at the proximal tibia with no matrix mineralization, consistent with giant cell tumor of bone; "Disease Type" is "Giant cell tumor of bone".
+      - Giant cell tumor is a primary bone tumor; "Is it a bone tumor?" is "Yes".
+      - The radiologist describes the appearance as "typical" for giant cell tumor; "Is it suspected or confirmed?" is "Confirmed".
+      - The lesion was found due to clinical symptoms, so "Is the lesion an incidental finding?" is "No".
+      - The lesion is at the proximal tibia; "Skeletal Location" is "Proximal tibia".
+      - Giant cell tumors classically occupy the epiphysis and extend into the metaphysis; "Location within bone" is "Epiphysis and metaphysis".
+      - No matrix mineralization is described; "Lesion Matrix" is "No matrix".
+      - Cortical erosion is noted but no periosteal reaction; "Surrounding bone reaction" is ["Cortical erosion"].
+      - The lesion has geographic bone destruction with a non-sclerotic border; "Margins and bone destruction pattern" is ["Wide transitional zone", "Geographic bone destruction"].
+      - The imaging features are internally consistent. The absence of a sclerotic rim and geographic pattern with cortical erosion are typical for giant cell tumor. No quality issues.
+    output: |
+      ```json
+      {
+        "Radiology Request Reason": "Suspicion of tumor",
+        "Patient Symptoms": ["Pain", "Swelling"],
+        "Disease Type": "Giant cell tumor of bone",
+        "Is it a bone tumor?": "Yes",
+        "Is it suspected or confirmed?": "Confirmed",
+        "Is the lesion an incidental finding?": "No",
+        "Skeletal Location": "Proximal tibia",
+        "Location within bone": "Epiphysis and metaphysis",
+        "Lesion Matrix": "No matrix",
+        "Surrounding bone reaction": ["Cortical erosion"],
+        "Margins and bone destruction pattern": ["Wide transitional zone", "Geographic bone destruction"],
+        "Quality Check": "The extracted data is consistent with the imaging report. All imaging features are coherent with a giant cell tumor. Histological confirmation is recommended given intermediate biological behavior."
+      }```
