@@ -169,3 +169,5 @@ experiment/*
 setup.sh
 slurm/*
 todo.txt
+Dockerfile
+cmd
