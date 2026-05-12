@@ -2,14 +2,20 @@ field_instructions:
 
   - name: "Radiology Request Reason"
     type: "string"
-    options:
-      - "Suspicion of tumor"
-      - "Metastasis"
-      - "Follow-up"
-      - "Recurrent tumor"
-      - "Incidental finding"
-      - "Not specified"
-    constraints: "Reason the imaging study was requested. Choose the option that best matches the clinical indication stated in the report. Use 'Not specified' only if no reason is given."
+    constraints: |
+      Reason the imaging study was requested specifically with regard to the bone tumor or tumor-mimicker lesion being characterized in this report — NOT the broader indication for the overall imaging study when those differ.
+      Examples of how to apply this scope:
+      - If the study was ordered to evaluate a muscle tear and a bone cyst is incidentally noted, the Radiology Request Reason for the bone cyst is "Incidental finding" (even though the study itself was a soft-tissue workup).
+      - If the study is a scheduled follow-up of a known enchondroma and the report continues to characterize the same enchondroma, the Radiology Request Reason is "Follow-up".
+      Common categories and what they mean (with respect to the bone lesion):
+      - "Suspicion of tumor": clinical symptoms or prior findings raise concern for a bone tumor, but no diagnosis has been established yet.
+      - "Initial diagnosis": imaging is performed to characterize a newly detected bone lesion or establish a first diagnosis (e.g. workup of a recently found mass).
+      - "Metastasis": imaging is requested to evaluate or stage suspected / known metastatic disease from a known primary, with the bone lesion in scope.
+      - "Follow-up": surveillance, response assessment, or post-treatment monitoring of a previously known bone lesion or disease.
+      - "Recurrent tumor": evaluation for relapse or recurrence of a previously treated bone tumor.
+      - "Incidental finding": the bone lesion was discovered incidentally during imaging performed for an unrelated clinical reason (e.g. trauma, soft-tissue complaint, vascular study).
+      Prefer one of these terms when the clinical indication clearly matches. The list is NOT exhaustive — if the report describes the indication differently (e.g. "preoperative planning", "biopsy guidance", "staging", "pain workup"), use that English term instead. When the indication is ambiguous or sits between two categories, pick the closest term and mention the ambiguity in the Quality Check field.
+      Use "Not specified" only when the report gives no indication at all for why the bone lesion is being characterized.
     default: "Not specified"
     chain_order: 1
 
@@ -18,18 +24,30 @@ field_instructions:
     constraints: |
       List every symptom the report attributes to the patient, in English, as concise medical terms (e.g. "Pain", "Swelling", "Pathological fracture", "Immobilization", "Scoliosis", "Limping", "Cord compression").
       The examples above are common cases — you are NOT limited to them. If the report mentions other symptoms (e.g. fatigue, paresthesia, weight loss, fever, neurological deficits), include them with their proper English term.
-      Use an empty list only if the report describes no patient symptoms at all.
+      Return an empty list [] when the report describes no patient symptoms (whether explicitly stated as asymptomatic, or simply not addressed).
     default: []
     chain_order: 2
 
-  - name: "Is the lesion an incidental finding?"
+  - name: "History of neoplasm"
     type: "string"
     options:
       - "Yes"
       - "No"
-      - "Not specified"
-    constraints: "Yes if the lesion was discovered during imaging performed for an unrelated reason. No if the imaging was ordered specifically to evaluate the lesion or related symptoms. Use 'Not specified' when the report gives no indication either way."
-    default: "Not specified"
+    constraints: |
+      Yes if the report mentions that the patient has any prior or concurrent neoplasm (e.g. known primary cancer, prior tumor diagnosis, oncologic history, treated malignancy, ongoing chemotherapy/radiotherapy for cancer).
+      No if the report does not mention any prior or concurrent neoplasm, or explicitly states no oncologic history. Absence of mention is treated as No (do not output "Not specified").
+    default: "No"
+    chain_order: 2
+
+  - name: "Suspected metastatic disease"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+    constraints: |
+      Yes if the report suggests, suspects, or interprets the current lesion as a metastasis (e.g. "compatible with metastasis", "suspicious for secondary deposit", "metastatic lesion", "in the context of known malignancy / consistent with bone metastasis").
+      No if the report does not specifically interpret the lesion as metastatic — even when a prior cancer history is mentioned but the radiologist favors a different (primary or benign) diagnosis. Absence of mention is treated as No (do not output "Not specified").
+    default: "No"
     chain_order: 2
 
   - name: "Skeletal Location"
@@ -84,14 +102,17 @@ field_instructions:
     chain_order: 3
 
   - name: "MRI contrast enhancement"
-    type: "list"
+    type: "string"
     options:
       - "Homogeneous enhancement"
       - "Heterogeneous enhancement"
       - "No enhancement"
       - "Absence/unknown"
-    constraints: "Pattern(s) of MRI contrast enhancement explicitly described. Use ['No enhancement'] only if the report states the lesion does not enhance. Use ['Absence/unknown'] if no contrast study was performed or enhancement is not mentioned."
-    default: []
+    constraints: |
+      Dominant pattern of MRI contrast enhancement described in the report. The options are essentially mutually exclusive — pick the one that best fits.
+      Use "No enhancement" only when the report states the lesion does not enhance after contrast administration.
+      Use "Absence/unknown" when no contrast study was performed, when the report does not mention enhancement, or when the field is not applicable (non-MRI modality).
+    default: "Absence/unknown"
     chain_order: 4
 
   - name: "Surrounding bone reaction"
@@ -116,17 +137,19 @@ field_instructions:
 task: |
   The input reports are in Spanish. All output values must be in English regardless of the input language.
   For fields with a fixed list of options, choose the option that best fits the report — use the option text exactly as written. For fields without options (free-text and list fields), produce concise English derived from the report; do not invent information that is not stated or strongly implied.
+  For list fields, return an empty list [] when nothing in the report applies. For string fields, use the field's "Not specified" / "Absence/unknown" sentinel when the report does not address the topic.
   Return only the JSON object, in this exact structure and key order:
   ```json
   {
       "Radiology Request Reason": "",
       "Patient Symptoms": [],
-      "Is the lesion an incidental finding?": "",
+      "History of neoplasm": "",
+      "Suspected metastatic disease": "",
       "Skeletal Location": "",
       "Location within bone": "",
       "Lesion Shape": "",
       "Lesion Matrix": "",
-      "MRI contrast enhancement": [],
+      "MRI contrast enhancement": "",
       "Surrounding bone reaction": [],
       "Quality Check": ""
   }```
@@ -136,13 +159,14 @@ examples:
       anonymized for github
     reasoning: |
       - The clinical indication mentions pain and swelling in the knee for several weeks, so "Patient Symptoms" is ["Pain", "Swelling"].
-      - The study was ordered to evaluate a suspected bone tumor, so "Radiology Request Reason" is "Suspicion of tumor".
-      - The lesion was found because of clinical symptoms, so "Is the lesion an incidental finding?" is "No".
+      - The study was ordered to evaluate this bone lesion specifically (clinical concern for a tumor), so "Radiology Request Reason" is "Suspicion of tumor".
+      - The clinical history mentions breast cancer in remission for 10 years, so "History of neoplasm" is "Yes".
+      - Despite the oncologic history, the radiologist interprets the imaging features as a primary osteosarcoma rather than a metastatic deposit, so "Suspected metastatic disease" is "No".
       - The lesion is centered in the distal femur on the right, so "Skeletal Location" is "Distal femur, right".
       - The lesion involves the metaphysis of the distal femur, so "Location within bone" is "Metaphysis".
       - The lesion has an irregular, ill-defined border with a permeative pattern, so "Lesion Shape" is "Irregular".
       - The report describes cloud-like osteoid mineralization, so "Lesion Matrix" is "Bone matrix".
-      - Post-contrast MRI shows heterogeneous enhancement of the soft tissue component, so "MRI contrast enhancement" is ["Heterogeneous enhancement"].
+      - Post-contrast MRI shows heterogeneous enhancement of the soft tissue component, so "MRI contrast enhancement" is "Heterogeneous enhancement".
       - The report describes a Codman triangle and cortical erosion, so "Surrounding bone reaction" is ["Codman triangle", "Cortical erosion"] (Codman triangle is a more specific periosteal reaction pattern not in the suggested list, which is allowed).
       - The findings are internally consistent with an aggressive primary bone lesion; no contradictions.
     output: |
@@ -150,27 +174,29 @@ examples:
       {
         "Radiology Request Reason": "Suspicion of tumor",
         "Patient Symptoms": ["Pain", "Swelling"],
-        "Is the lesion an incidental finding?": "No",
+        "History of neoplasm": "Yes",
+        "Suspected metastatic disease": "No",
         "Skeletal Location": "Distal femur, right",
         "Location within bone": "Metaphysis",
         "Lesion Shape": "Irregular",
         "Lesion Matrix": "Bone matrix",
-        "MRI contrast enhancement": ["Heterogeneous enhancement"],
+        "MRI contrast enhancement": "Heterogeneous enhancement",
         "Surrounding bone reaction": ["Codman triangle", "Cortical erosion"],
-        "Quality Check": "No issues detected. Findings are internally consistent with an aggressive metaphyseal lesion."
+        "Quality Check": "No issues detected. Findings are internally consistent with an aggressive metaphyseal lesion. Prior breast cancer history is noted but features favor a primary osteosarcoma."
       }```
 
   - input: |
       anonymized for github
     reasoning: |
-      - The study was a routine hand X-ray for an unrelated complaint and the lesion was not clinically suspected, so "Radiology Request Reason" is "Incidental finding".
+      - The study was a routine hand X-ray for an unrelated soft-tissue complaint and the bone lesion was not clinically suspected — it was discovered incidentally — so the Radiology Request Reason for this lesion is "Incidental finding".
       - No symptoms attributable to the lesion are mentioned, so "Patient Symptoms" is [].
-      - The lesion was discovered incidentally, so "Is the lesion an incidental finding?" is "Yes".
+      - The report does not mention any prior or concurrent neoplasm, so "History of neoplasm" is "No".
+      - The radiologist describes a typical benign cartilaginous lesion (enchondroma) and does not raise any suspicion of metastasis, so "Suspected metastatic disease" is "No".
       - The lesion is in the proximal phalanx of the left index finger, so "Skeletal Location" is "Proximal phalanx of index finger, left".
       - It occupies the diaphysis of the phalanx, so "Location within bone" is "Diaphysis".
       - The lesion is round/oval with smooth borders, so "Lesion Shape" is "Round/oval".
       - Rings-and-arcs calcification is described, so "Lesion Matrix" is "Cartilage matrix".
-      - No MRI was performed, so "MRI contrast enhancement" is ["Absence/unknown"].
+      - No MRI was performed, so "MRI contrast enhancement" is "Absence/unknown".
       - No periosteal reaction, cortical breach, or marrow edema is described, so "Surrounding bone reaction" is ["None"].
       - All features are coherent with a benign cartilaginous lesion; no issues detected.
     output: |
@@ -178,12 +204,13 @@ examples:
       {
         "Radiology Request Reason": "Incidental finding",
         "Patient Symptoms": [],
-        "Is the lesion an incidental finding?": "Yes",
+        "History of neoplasm": "No",
+        "Suspected metastatic disease": "No",
         "Skeletal Location": "Proximal phalanx of index finger, left",
         "Location within bone": "Diaphysis",
         "Lesion Shape": "Round/oval",
         "Lesion Matrix": "Cartilage matrix",
-        "MRI contrast enhancement": ["Absence/unknown"],
+        "MRI contrast enhancement": "Absence/unknown",
         "Surrounding bone reaction": ["None"],
         "Quality Check": "No issues detected. Features are coherent with a benign cartilaginous lesion."
       }```
@@ -193,12 +220,13 @@ examples:
     reasoning: |
       - The clinical indication is pain and swelling around the knee, so "Patient Symptoms" is ["Pain", "Swelling"].
       - The request was driven by clinical suspicion of a bone lesion, so "Radiology Request Reason" is "Suspicion of tumor".
-      - The lesion was found in response to symptoms, so "Is the lesion an incidental finding?" is "No".
+      - No prior or concurrent neoplasm is mentioned, so "History of neoplasm" is "No".
+      - The report interprets the lesion as a giant cell tumor of bone rather than a metastasis, so "Suspected metastatic disease" is "No".
       - The lesion is at the proximal tibia, so "Skeletal Location" is "Proximal tibia".
       - It classically occupies the epiphysis and extends into the metaphysis, so "Location within bone" is "Epiphysis and metaphysis".
       - The lesion has a geographic, well-defined contour, so "Lesion Shape" is "Geographic".
       - No matrix mineralization is described, so "Lesion Matrix" is "Not specified".
-      - Post-contrast MRI shows homogeneous enhancement, so "MRI contrast enhancement" is ["Homogeneous enhancement"].
+      - Post-contrast MRI shows homogeneous enhancement, so "MRI contrast enhancement" is "Homogeneous enhancement".
       - Cortical erosion is noted with no periosteal reaction, so "Surrounding bone reaction" is ["Cortical erosion"].
       - Findings are coherent; histological confirmation is recommended given intermediate biological behavior.
     output: |
@@ -206,12 +234,13 @@ examples:
       {
         "Radiology Request Reason": "Suspicion of tumor",
         "Patient Symptoms": ["Pain", "Swelling"],
-        "Is the lesion an incidental finding?": "No",
+        "History of neoplasm": "No",
+        "Suspected metastatic disease": "No",
         "Skeletal Location": "Proximal tibia",
         "Location within bone": "Epiphysis and metaphysis",
         "Lesion Shape": "Geographic",
         "Lesion Matrix": "Not specified",
-        "MRI contrast enhancement": ["Homogeneous enhancement"],
+        "MRI contrast enhancement": "Homogeneous enhancement",
         "Surrounding bone reaction": ["Cortical erosion"],
         "Quality Check": "No issues detected. Histological confirmation is recommended given intermediate biological behavior."
       }```
