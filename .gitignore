@@ -165,7 +165,8 @@ env/*
 .vscode/*
 *__pycache__*
 
-experiment/*
+output/*
 setup.sh
 slurm/*
 todo.txt
+cmd
