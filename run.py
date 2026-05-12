@@ -157,6 +157,13 @@ def main():
         action="store_true",
         help="Do you want to do a dry run, trying out the whole workflow without running the LLM"
     )
+    parser.add_argument(
+        "-n",
+        "--num-rows",
+        type=int,
+        default=None,
+        help="If set, only process the first N rows/items of the input (useful for quick tests)"
+    )
 
     args = parser.parse_args()
     
@@ -186,6 +193,9 @@ def main():
     # Initialize appropriate adapter
     if args.format == "csv":
         df = pd.read_csv(args.input, sep=';')
+        if args.num_rows is not None:
+            df = df.head(args.num_rows).reset_index(drop=True)
+            logging.info(f"[Limit] Processing only the first {len(df)} rows")
         adapter = DataFrameAdapter(
             df=df,
             report_type_column=args.report_type_key,
@@ -198,6 +208,9 @@ def main():
             text_key=args.text_key,
             id_key=args.patient_id_col
         )
+        if args.num_rows is not None:
+            adapter.original_data = adapter.original_data[:args.num_rows]
+            logging.info(f"[Limit] Processing only the first {len(adapter.original_data)} items")
     
     # Process reports
     result = report_parser.process_with_adapter(adapter)
