@@ -131,7 +131,7 @@ field_instructions:
       Briefly flag any contradictory findings, ambiguous descriptions, or missing information that affects interpretation.
       If no issues are identified, return "No issues detected".
     default: "No issues detected"
-    chain_order: 7
+    chain_order: 5
 
 
 task: |
