@@ -34,8 +34,8 @@ field_instructions:
       - "Yes"
       - "No"
     constraints: |
-      Yes if the report mentions that the patient has any prior or concurrent neoplasm (e.g. known primary cancer, prior tumor diagnosis, oncologic history, treated malignancy, ongoing chemotherapy/radiotherapy for cancer).
-      No if the report does not mention any prior or concurrent neoplasm, or explicitly states no oncologic history. Absence of mention is treated as No (do not output "Not specified").
+      Yes ONLY if the report mentions a prior or known concurrent MALIGNANCY that is separate from the bone lesion being characterized here (e.g. breast cancer, prostate cancer, lung cancer, melanoma, lymphoma, ongoing chemo/radiotherapy, treated cancer in remission).
+      No otherwise. The current lesion itself does NOT count, even when it is a neoplasm (lipoma, enchondroma, giant cell tumor, osteosarcoma, etc.). Absence of mention is treated as No (do not output "Not specified").
     default: "No"
     chain_order: 2
 
@@ -87,17 +87,18 @@ field_instructions:
   - name: "Lesion Matrix"
     type: "string"
     constraints: |
-      Predominant matrix type visible on imaging, expressed as a concise English term. Common categories and their imaging hallmarks:
+      Predominant matrix type EXPLICITLY DESCRIBED on imaging (calcification pattern, MRI signal, CT density). Extract only what the report states; do NOT infer matrix from the diagnosis name (e.g. "lipoma" → "Fatty tissue", "enchondroma" → "Cartilage matrix", "osteosarcoma" → "Bone matrix" are all WRONG without an imaging description).
+      Preferred terms and the imaging hallmark that justifies each:
       - "Bone matrix": sclerotic / osteoid mineralization, cloud-like or ivory density.
       - "Cartilage matrix": rings-and-arcs or popcorn calcification.
       - "Fibrous matrix": ground-glass opacity, narrow zone of transition.
       - "Fatty tissue": fat-equivalent signal on MRI or low density on CT.
       - "Fluid": cyst-like / fluid-equivalent signal.
-      - "Vascular": prominent vascular components described.
-      - "Viable tissue": non-mineralized soft-tissue matrix without other distinguishing features.
-      - "Mixed": more than one of the above clearly described together.
-      Prefer one of these terms when the report matches a hallmark. The list is NOT exhaustive — if the report uses a more specific or different descriptor (e.g. "osteoid matrix", "chondroid matrix", "hemorrhagic", "necrotic", "myxoid"), use that English term instead.
-      Use "Not specified" only when no matrix is characterized in the report.
+      - "Vascular": prominent vascular components.
+      - "Viable tissue": non-mineralized soft tissue with no other distinguishing feature.
+      - "Mixed": more than one of the above explicitly described together.
+      The list is not exhaustive — use a more specific English term (e.g. "osteoid matrix", "chondroid matrix", "hemorrhagic", "necrotic", "myxoid") when the report uses it.
+      Use "Not specified" when no matrix is described on imaging — including when the lesion is only named without imaging characterization.
     default: "Not specified"
     chain_order: 3
 
@@ -160,12 +161,12 @@ examples:
     reasoning: |
       - The clinical indication mentions pain and swelling in the knee for several weeks, so "Patient Symptoms" is ["Pain", "Swelling"].
       - The study was ordered to evaluate this bone lesion specifically (clinical concern for a tumor), so "Radiology Request Reason" is "Suspicion of tumor".
-      - The clinical history mentions breast cancer in remission for 10 years, so "History of neoplasm" is "Yes".
+      - The clinical history mentions breast cancer in remission for 10 years — a malignancy separate from the bone lesion — so "History of neoplasm" is "Yes".
       - Despite the oncologic history, the radiologist interprets the imaging features as a primary osteosarcoma rather than a metastatic deposit, so "Suspected metastatic disease" is "No".
       - The lesion is centered in the distal femur on the right, so "Skeletal Location" is "Distal femur, right".
       - The lesion involves the metaphysis of the distal femur, so "Location within bone" is "Metaphysis".
       - The lesion has an irregular, ill-defined border with a permeative pattern, so "Lesion Shape" is "Irregular".
-      - The report describes cloud-like osteoid mineralization, so "Lesion Matrix" is "Bone matrix".
+      - The report describes "cloud-like osteoid mineralization" on imaging, so "Lesion Matrix" is "Bone matrix" (justified by the imaging description, not by the diagnosis name).
       - Post-contrast MRI shows heterogeneous enhancement of the soft tissue component, so "MRI contrast enhancement" is "Heterogeneous enhancement".
       - The report describes a Codman triangle and cortical erosion, so "Surrounding bone reaction" is ["Codman triangle", "Cortical erosion"] (Codman triangle is a more specific periosteal reaction pattern not in the suggested list, which is allowed).
       - The findings are internally consistent with an aggressive primary bone lesion; no contradictions.
@@ -190,12 +191,12 @@ examples:
     reasoning: |
       - The study was a routine hand X-ray for an unrelated soft-tissue complaint and the bone lesion was not clinically suspected — it was discovered incidentally — so the Radiology Request Reason for this lesion is "Incidental finding".
       - No symptoms attributable to the lesion are mentioned, so "Patient Symptoms" is [].
-      - The report does not mention any prior or concurrent neoplasm, so "History of neoplasm" is "No".
+      - No separate oncologic history is mentioned; the current enchondroma is the lesion itself and does not count, so "History of neoplasm" is "No".
       - The radiologist describes a typical benign cartilaginous lesion (enchondroma) and does not raise any suspicion of metastasis, so "Suspected metastatic disease" is "No".
       - The lesion is in the proximal phalanx of the left index finger, so "Skeletal Location" is "Proximal phalanx of index finger, left".
       - It occupies the diaphysis of the phalanx, so "Location within bone" is "Diaphysis".
       - The lesion is round/oval with smooth borders, so "Lesion Shape" is "Round/oval".
-      - Rings-and-arcs calcification is described, so "Lesion Matrix" is "Cartilage matrix".
+      - "Rings-and-arcs calcification" is described on imaging, so "Lesion Matrix" is "Cartilage matrix" (justified by the imaging description, not by the diagnosis name "enchondroma").
       - No MRI was performed, so "MRI contrast enhancement" is "Absence/unknown".
       - No periosteal reaction, cortical breach, or marrow edema is described, so "Surrounding bone reaction" is ["None"].
       - All features are coherent with a benign cartilaginous lesion; no issues detected.
@@ -220,7 +221,7 @@ examples:
     reasoning: |
       - The clinical indication is pain and swelling around the knee, so "Patient Symptoms" is ["Pain", "Swelling"].
       - The request was driven by clinical suspicion of a bone lesion, so "Radiology Request Reason" is "Suspicion of tumor".
-      - No prior or concurrent neoplasm is mentioned, so "History of neoplasm" is "No".
+      - No separate oncologic history is mentioned; the current giant cell tumor is the lesion itself and does not count, so "History of neoplasm" is "No".
       - The report interprets the lesion as a giant cell tumor of bone rather than a metastasis, so "Suspected metastatic disease" is "No".
       - The lesion is at the proximal tibia, so "Skeletal Location" is "Proximal tibia".
       - It classically occupies the epiphysis and extends into the metaphysis, so "Location within bone" is "Epiphysis and metaphysis".
