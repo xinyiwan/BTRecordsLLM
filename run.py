@@ -1,4 +1,5 @@
 import argparse
+import re
 import pandas as pd
 from pathlib import Path
 from parser import VLLMReportParser
@@ -9,10 +10,22 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+_THINK_PATTERN = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+_DANGLING_THINK_PATTERN = re.compile(r"<think>.*", re.DOTALL | re.IGNORECASE)
+
 def load_config(config_path: str) -> dict:
     """Load configuration from YAML file"""
     with open(config_path) as f:
         return yaml.safe_load(f)
+
+def strip_think_block(text):
+    """Remove <think>...</think> blocks from raw model output. Handles unterminated tags."""
+    if not isinstance(text, str):
+        return text
+    cleaned = _THINK_PATTERN.sub("", text)
+    if "<think>" in cleaned.lower():
+        cleaned = _DANGLING_THINK_PATTERN.sub("", cleaned)
+    return cleaned.strip()
 
 def main():
     parser = argparse.ArgumentParser(
@@ -188,7 +201,17 @@ def main():
     
     # Process reports
     result = report_parser.process_with_adapter(adapter)
-    
+
+    # Strip <think>...</think> from raw_output into a final_output column/key
+    # (the parser already preserves think content separately in `reasoning`).
+    if args.format == "csv":
+        if "raw_output" in result.columns:
+            result["final_output"] = result["raw_output"].apply(strip_think_block)
+    else:
+        for item in result:
+            if "raw_output" in item:
+                item["final_output"] = strip_think_block(item["raw_output"])
+
     # Save output
     output_path = Path(args.output)
     if not args.dry_run:
