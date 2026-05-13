@@ -50,6 +50,19 @@ field_instructions:
     default: "No"
     chain_order: 2
 
+  - name: "Progression"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+      - "Not applicable"
+    constraints: |
+      Yes if the report (typically a follow-up of a known bone lesion) describes progression — growth in size, new aggressive features, new lesions, or worsening compared to prior imaging.
+      No if the report describes the lesion as stable, unchanged, regressed, or improved compared to prior imaging.
+      "Not applicable" when the report does not address change over time (e.g. initial diagnosis, incidental finding, or a follow-up that simply does not comment on progression).
+    default: "Not applicable"
+    chain_order: 2
+
   - name: "Skeletal Location"
     type: "string"
     constraints: "Anatomical location of the lesion using standard UMLS-style English terms (e.g. 'Femur', 'Tibia', 'Lumbar spine', 'Proximal humerus'). When laterality is reported, append the side (e.g. 'Distal femur, right'). Use 'Not specified' if no bone or skeletal region is identified."
@@ -146,6 +159,7 @@ task: |
       "Patient Symptoms": [],
       "History of neoplasm": "",
       "Suspected metastatic disease": "",
+      "Progression": "",
       "Skeletal Location": "",
       "Location within bone": "",
       "Lesion Shape": "",
@@ -163,6 +177,7 @@ examples:
       - The study was ordered to evaluate this bone lesion specifically (clinical concern for a tumor), so "Radiology Request Reason" is "Suspicion of tumor".
       - The clinical history mentions breast cancer in remission for 10 years — a malignancy separate from the bone lesion — so "History of neoplasm" is "Yes".
       - Despite the oncologic history, the radiologist interprets the imaging features as a primary osteosarcoma rather than a metastatic deposit, so "Suspected metastatic disease" is "No".
+      - This is an initial workup of a new lesion, not a follow-up; no change over time is discussed, so "Progression" is "Not applicable".
       - The lesion is centered in the distal femur on the right, so "Skeletal Location" is "Distal femur, right".
       - The lesion involves the metaphysis of the distal femur, so "Location within bone" is "Metaphysis".
       - The lesion has an irregular, ill-defined border with a permeative pattern, so "Lesion Shape" is "Irregular".
@@ -177,6 +192,7 @@ examples:
         "Patient Symptoms": ["Pain", "Swelling"],
         "History of neoplasm": "Yes",
         "Suspected metastatic disease": "No",
+        "Progression": "Not applicable",
         "Skeletal Location": "Distal femur, right",
         "Location within bone": "Metaphysis",
         "Lesion Shape": "Irregular",
@@ -193,6 +209,7 @@ examples:
       - No symptoms attributable to the lesion are mentioned, so "Patient Symptoms" is [].
       - No separate oncologic history is mentioned; the current enchondroma is the lesion itself and does not count, so "History of neoplasm" is "No".
       - The radiologist describes a typical benign cartilaginous lesion (enchondroma) and does not raise any suspicion of metastasis, so "Suspected metastatic disease" is "No".
+      - The study is an incidental finding with no comparison to prior imaging, so "Progression" is "Not applicable".
       - The lesion is in the proximal phalanx of the left index finger, so "Skeletal Location" is "Proximal phalanx of index finger, left".
       - It occupies the diaphysis of the phalanx, so "Location within bone" is "Diaphysis".
       - The lesion is round/oval with smooth borders, so "Lesion Shape" is "Round/oval".
@@ -207,6 +224,7 @@ examples:
         "Patient Symptoms": [],
         "History of neoplasm": "No",
         "Suspected metastatic disease": "No",
+        "Progression": "Not applicable",
         "Skeletal Location": "Proximal phalanx of index finger, left",
         "Location within bone": "Diaphysis",
         "Lesion Shape": "Round/oval",
@@ -223,6 +241,7 @@ examples:
       - The request was driven by clinical suspicion of a bone lesion, so "Radiology Request Reason" is "Suspicion of tumor".
       - No separate oncologic history is mentioned; the current giant cell tumor is the lesion itself and does not count, so "History of neoplasm" is "No".
       - The report interprets the lesion as a giant cell tumor of bone rather than a metastasis, so "Suspected metastatic disease" is "No".
+      - This is an initial workup, no prior imaging comparison, so "Progression" is "Not applicable".
       - The lesion is at the proximal tibia, so "Skeletal Location" is "Proximal tibia".
       - It classically occupies the epiphysis and extends into the metaphysis, so "Location within bone" is "Epiphysis and metaphysis".
       - The lesion has a geographic, well-defined contour, so "Lesion Shape" is "Geographic".
@@ -237,6 +256,7 @@ examples:
         "Patient Symptoms": ["Pain", "Swelling"],
         "History of neoplasm": "No",
         "Suspected metastatic disease": "No",
+        "Progression": "Not applicable",
         "Skeletal Location": "Proximal tibia",
         "Location within bone": "Epiphysis and metaphysis",
         "Lesion Shape": "Geographic",
