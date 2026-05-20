@@ -26,7 +26,7 @@ from urllib.parse import urlparse
 
 csv.field_size_limit(sys.maxsize)
 
-DEFAULT_CSV = Path(__file__).parent / "output" / "test-100.csv"
+DEFAULT_CSV = Path(__file__).parent / "output" / "kira-0525-en.csv"
 
 # Columns we surface in the UI. Anything else is ignored.
 META_COLS = [
@@ -47,7 +47,7 @@ ROWS: list[dict] = []
 
 def load_csv(path: Path) -> list[dict]:
     with path.open(newline="", encoding="utf-8") as f:
-        return list(csv.DictReader(f, delimiter=";"))
+        return list(csv.DictReader(f, delimiter=","))
 
 
 _FENCE_RE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)

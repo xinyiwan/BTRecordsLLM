@@ -40,9 +40,16 @@ def main():
     parser.add_argument("--max-tokens", type=int, default=4096, help="Max tokens for the response")
     parser.add_argument("--timeout", type=int, default=120, help="Request timeout in seconds")
     parser.add_argument("-n", "--limit", type=int, default=None, help="Optional: only translate the first N rows (for testing)")
+    parser.add_argument("-s", "--shuffle", action='store_true', help="shuffle the dataset")
+
     args = parser.parse_args()
 
-    df = pd.read_csv(args.input, sep=";")
+    df = pd.read_csv(args.input, sep=",")
+    if args.shuffle:
+        print(f"Shuffling dataset with {len(df)} rows...")
+        df = df.sample(frac=1, random_state=42).reset_index(drop=True)
+        print("Dataset shuffled successfully!")
+
     if args.column not in df.columns:
         raise ValueError(f"Column '{args.column}' not found in {args.input}. Available: {list(df.columns)}")
 
