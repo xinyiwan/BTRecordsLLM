@@ -24,7 +24,7 @@ def get_clinical_info(pid: str, mapping_csv: str, results_csv: str) -> dict:
     if record.empty:
         raise KeyError(f"No record for {pid} (info_key={info_key}, sip={sip})")
 
-    data = json.loads(record.iloc[0]["final_output"])
+    data = json.loads(record.iloc[0]["extracted_data"].replace("'", '"'))
     return {
         "symptoms": data.get("Patient Symptoms", []),
         "history_of_neoplasm": data.get("History of neoplasm", "Not specified"),
