@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--translation-column", default="valoracion_en_clean", help="New column for the cleaned translation")
     args = parser.parse_args()
 
-    df = pd.read_csv(args.input, sep=",")
+    df = pd.read_csv(args.input, sep=";")
     if args.column not in df.columns:
         raise ValueError(f"Column '{args.column}' not found in {args.input}. Available: {list(df.columns)}")
 

@@ -53,10 +53,13 @@ def build_clinical_csv(mapping_csv: str, results_csv: str, output_csv: str) -> N
     rows = []
     for _, r in merged.iterrows():
         pid = r["subject_code"]
+        info_key = r["info_key"]
+        sip = r["sip"]
         try:
-            rows.append({"pid": pid, **_parse(r["extracted_data"])})
+            rows.append({"pid": pid, "info_key": info_key, "sip": sip, **_parse(r["extracted_data"])})
         except (json.JSONDecodeError, TypeError, AttributeError):
-            rows.append({"pid": pid, "symptoms": None, "history_of_neoplasm": None,
+            rows.append({"pid": pid, "info_key": info_key, "sip": sip,
+                         "symptoms": None, "history_of_neoplasm": None,
                          "suspected_metastasis": None, "skeletal_location": None,
                          "location_within_bone": None})
 
