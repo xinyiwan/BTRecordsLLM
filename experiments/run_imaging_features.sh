@@ -17,8 +17,8 @@
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-node=1
 #SBATCH --time=04:00:00
-#SBATCH --output=/projects/prjs1779/BONE-AI/logs/out/slurm-%x-%j.out
-#SBATCH --error=/projects/prjs1779/BONE-AI/logs/err/slurm-%x-%j.err
+#SBATCH --output=/projects/prjs1779/BTRecordsLLM/logs/out/slurm-%x-%j.out
+#SBATCH --error=/projects/prjs1779/BTRecordsLLM/logs/err/slurm-%x-%j.err
 
 set -euo pipefail
 
@@ -26,18 +26,18 @@ export HF_HOME=/scratch-shared/$USER/hf-cache
 
 # Absolute, because sbatch copies this script to a node-local spool dir
 # before running it -- ${BASH_SOURCE[0]} would resolve outside the repo.
-REPO=/gpfs/work2/0/prjs1779/BONE-AI/BTRecordsLLM
+REPO=/gpfs/work2/0/prjs1779/BTRecordsLLM
 
 # --- edit these for your run ---
-MODEL=/scratch-shared/$USER/models/<your-model-dir>
+MODEL=/scratch-shared/$USER/models/DeepSeek-R1-0528-Qwen3-8B
 PROMPT_CONFIG=$REPO/resources/prompt_configs/Use_Case_BT_Imaging_Features.yaml
 PARAMS_CONFIG=$REPO/resources/model_configs/DeepSeek-R1-0528-Qwen3-8B.yaml
-INPUT=/projects/prjs1779/BONE-AI/data/<your-input>.csv
+INPUT=/projects/prjs1779/BTRecordsLLM/data/kira-0515-en.csv
 FORMAT=csv
 PROMPT_METHOD=FewShot
 TENSOR_PARALLEL_SIZE=1
 
-OUTDIR=/scratch-shared/$USER/BONE-AI/imaging_features
+OUTDIR=/projects/prjs1779/BTRecordsLLM/output/imaging_features
 OUT=$OUTDIR/imaging_features_$(basename "$MODEL").csv
 PORT=8765
 BASE_URL="http://localhost:${PORT}/v1"
@@ -87,6 +87,10 @@ python run.py \
   --prompt-method "$PROMPT_METHOD" \
   --prompt-config "$PROMPT_CONFIG" \
   --params-config "$PARAMS_CONFIG" \
-  --base-url "$BASE_URL"
+  --base-url "$BASE_URL" \
+  --batch-size 8 \
+  --patient-id-col sip \
+  --text-col valoracion \
+  -mc 2
 
 echo "[Done] output written to $OUT"

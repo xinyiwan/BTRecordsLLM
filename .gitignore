@@ -161,6 +161,7 @@ coverage
 data/*
 venv/*
 env/*
+.bashrc
 *.csv
 .vscode/*
 *__pycache__*
