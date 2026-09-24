@@ -1,0 +1,229 @@
+field_instructions:
+  - name: "Max Diameter"
+    type: "string"
+    constraints: |
+      Report the full set of dimensions exactly as given in the report, in the format AxBxC mm (or AxB mm if only two dimensions are given).
+      All values must be converted to millimeters. If the report gives dimensions in cm, multiply by 10 and convert to mm.
+      If multiple lesions/measurements are described, use the dimensions of the primary/target lesion (the one being characterized for the other imaging features below).
+      Use "Not specified" if no measurement is given for the target lesion.
+    default: "Not specified"
+    chain_order: 1
+
+  - name: "Max Diameter (longest axis, mm)"
+    type: "string"
+    constraints: |
+      From the AxBxC mm (or AxB mm) measurement captured in "Max Diameter", extract only the single longest numeric value, in mm.
+      Use "Not specified" if no measurement is given.
+    default: "Not specified"
+    chain_order: 1
+
+  - name: "Shape"
+    type: "string"
+    options:
+      - "Round/Oval"
+      - "lobulated"
+      - "irregular"
+      - "others"
+      - "Not specified"
+    constraints: |
+      The overall shape of the outer margin/contour of the lesion.
+      Round/Oval: the outer boundary is one smooth, continuous curve; internal nodular foci sit inside that envelope without pushing out to create separate bulges reaching the margin.
+      lobulated: the mass is made of several rounded lobes packed side by side, each smooth on its own but separated by shallow notches where adjacent lobes meet, giving a cauliflower-like outline rather than one single curve.
+      irregular: the margin has no repeatable geometry - jagged, angular, ill-defined projections scattered unpredictably, fitting none of the smooth-curve or lobed patterns.
+      others: the border is described but is not clearly Round/Oval, lobulated, or irregular by the definitions above.
+    default: "Not specified"
+    chain_order: 2
+
+  - name: "T1W_intensity"
+    type: "string"
+    options:
+      - "hyperintense"
+      - "hypo-to-isointense"
+      - "hypointense"
+      - "Not specified"
+    constraints: |
+      Signal intensity of the lesion on T1-weighted (non-fat-saturated) sequence, relative to skeletal muscle or adjacent intervertebral disc.
+      hyperintense: much higher (brighter) than normal muscle.
+      hypo-to-isointense: slightly higher than normal muscle, clearly brighter than muscle but well short of fat/marrow brightness.
+      hypointense: similar to or darker than normal muscle.
+      Use "Not specified" if the report does not describe T1 signal for this lesion.
+    default: "Not specified"
+    chain_order: 3
+
+  - name: "fluid_sensitive_intensity"
+    type: "string"
+    options:
+      - "hypo-to-isointense"
+      - "isointense-to-hyperintense"
+      - "hyperintense"
+      - "Not specified"
+    constraints: |
+      Signal intensity of the lesion on fluid-sensitive sequences (fat-suppressed T2-weighted, STIR, or PD-weighted), relative to muscle and to simple fluid.
+      hypo-to-isointense: similar to or slightly higher than normal muscle, clearly below the brightness of simple fluid.
+      isointense-to-hyperintense: brighter than normal muscle and approaching, but not equal to, the brightness of simple fluid.
+      hyperintense: comparable to that of simple fluid (e.g. joint fluid or CSF).
+      Use "Not specified" if the report does not describe fluid-sensitive signal for this lesion.
+    default: "Not specified"
+    chain_order: 3
+
+  - name: "fluid_sensitive_pattern"
+    type: "string"
+    options:
+      - "heterogeneous"
+      - "homogenous"
+      - "Not specified"
+    constraints: |
+      Pattern of signal on fluid-sensitive sequences (fat-suppressed T2-weighted, STIR, or PD-weighted).
+      heterogeneous: patchy, mixed, or non-uniform signal intensity.
+      homogenous: uniform signal throughout the lesion.
+      Use "Not specified" if the report does not describe this.
+    default: "Not specified"
+    chain_order: 3
+
+  - name: "T1W_FS_CE_signal_drop"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+      - "Not applicable"
+      - "Not specified"
+    constraints: |
+      Only assessed when the lesion is T1W-hyperintense (i.e. contains fat). Whether lesion signal drops on fat-suppressed post-contrast T1W (T1W-FS-CE) compared with plain T1W.
+      Yes: signal drops on T1W-FS-CE compared with T1W.
+      No: no signal drop on T1W-FS-CE compared with T1W.
+      Use "Not applicable" if the lesion is not T1W-hyperintense.
+      Use "Not specified" if fat-suppressed post-contrast T1W is not described.
+    default: "Not specified"
+    chain_order: 4
+
+  - name: "T1W_FS_CE_pattern"
+    type: "string"
+    options:
+      - "Heterogeneous"
+      - "Homogenous (fluid-like)"
+      - "No enhancement"
+      - "Not applicable"
+      - "Not specified"
+    constraints: |
+      Only assessed when the lesion is NOT T1W-hyperintense. Enhancement pattern of the lesion on fat-suppressed post-contrast T1W (T1W-FS-CE).
+      Heterogeneous: patchy, mixed, or non-uniform enhancement, including non-enhancing areas.
+      Homogenous (fluid-like): uniform enhancement throughout the lesion.
+      No enhancement: no detectable increase in signal within the lesion after contrast.
+      Use "Not applicable" if the lesion is T1W-hyperintense.
+      Use "Not specified" if not described.
+    default: "Not specified"
+    chain_order: 4
+
+  - name: "Soft Tissue Invasion"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+      - "Not specified"
+    constraints: |
+      Hyperintensity in the muscle or fascia adjacent to the tumor on fluid-sensitive sequences (T2-FS or STIR), reflecting peritumoral soft-tissue edema.
+      Use "Not specified" if not described.
+    default: "Not specified"
+    chain_order: 5
+
+  - name: "perilesional_edema_T1W"
+    type: "string"
+    options:
+      - "presence"
+      - "absence"
+      - "Not specified"
+    constraints: |
+      Perilesional bone marrow edema is an inflammatory reaction adjacent to the tumor. This component covers the bone marrow adjacent to the tumor on T1W.
+      presence: low-to-intermediate signal on T1W around the tumor in the bone marrow.
+      absence: no low-to-intermediate signal on T1W around the tumor in the bone marrow.
+      Use "Not specified" if not described.
+    default: "Not specified"
+    chain_order: 5
+
+  - name: "perilesional_edema_fluid_sensitive"
+    type: "string"
+    options:
+      - "presence"
+      - "absence"
+      - "Not specified"
+    constraints: |
+      Perilesional bone marrow edema is an inflammatory reaction adjacent to the tumor. This component covers the bone marrow adjacent to the tumor on fluid-sensitive sequences (T2-FS or STIR).
+      presence: high signal around the tumor in the bone marrow.
+      absence: no high signal around the tumor in the bone marrow.
+      Use "Not specified" if not described.
+    default: "Not specified"
+    chain_order: 5
+
+task: |
+  The input report may be in Spanish. All output values must be in English regardless of the input language.
+  Extract imaging features for the primary/target lesion only. If a feature is not described in the report, use "Not specified" (or "Not applicable" where indicated) rather than inferring or making up a value.
+  Extract information into this exact JSON structure:
+  ```json
+  {
+      "Max Diameter": "",
+      "Max Diameter (longest axis, mm)": "",
+      "Shape": "",
+      "T1W_intensity": "",
+      "fluid_sensitive_intensity": "",
+      "fluid_sensitive_pattern": "",
+      "T1W_FS_CE_signal_drop": "",
+      "T1W_FS_CE_pattern": "",
+      "Soft Tissue Invasion": "",
+      "perilesional_edema_T1W": "",
+      "perilesional_edema_fluid_sensitive": ""
+  }```
+
+examples:
+  - input: |
+      Acumulacion de liquido en el recesus femoropatelar lateral, medial y lateral.
+      Alteracion de contorno ovalada, lobulada en el aspecto distal y lateral del femur intramedular metafisario-diafisario, en el aspecto superior del condilo femoral lateral, con contornos lobulados de aproximadamente 38.4x29x19.8 mm en dimensiones craneocaudal, anteroposterior y transversal, hiperintensa y heterogenea en secuencias PD y T2*GE, hipointensa en secuencias T1, con focos intralesionales de senal hipointensa en la secuencia GE, sin edema perilesional adyacente. Los hallazgos, segun las caracteristicas de senal, sugieren la posibilidad de diagnostico de encondroma, a correlacionar con hallazgos de radiografia simple.
+      Quiste de Baker, fusiforme/laminar, de aproximadamente 47.5 x 3 mm en dimensiones craneocaudal y anteroposterior.
+    reasoning: |
+      - The target lesion is the intramedullary metaphyseal-diaphyseal femoral lesion (the Baker's cyst is a separate, incidental finding); its dimensions are 38.4x29x19.8 mm, so "Max Diameter" is "38.4x29x19.8 mm" and "Max Diameter (longest axis, mm)" is "38.4".
+      - The lesion is described as "oval-shaped, lobulated" contour, so "Shape" is "lobulated" (the more specific descriptor given).
+      - The lesion is hypointense in T1 sequences, so "T1W_intensity" is "hypointense".
+      - The lesion is hyperintense in PD and T2*GE (fluid-sensitive) sequences, so "fluid_sensitive_intensity" is "hyperintense".
+      - The lesion is described as heterogeneous in PD/T2*GE, so "fluid_sensitive_pattern" is "heterogeneous".
+      - Since T1W_intensity is hypointense (not hyperintense), "T1W_FS_CE_signal_drop" is "Not applicable"; no post-contrast T1W-FS is described, so "T1W_FS_CE_pattern" is "Not specified".
+      - No mention of muscle/fascia edema, so "Soft Tissue Invasion" is "Not specified".
+      - The report explicitly states "without adjacent peri-lesional edema", so both "perilesional_edema_T1W" and "perilesional_edema_fluid_sensitive" are "absence".
+    output: |
+      ```json
+      {
+        "Max Diameter": "38.4x29x19.8 mm",
+        "Max Diameter (longest axis, mm)": "38.4",
+        "Shape": "lobulated",
+        "T1W_intensity": "hypointense",
+        "fluid_sensitive_intensity": "hyperintense",
+        "fluid_sensitive_pattern": "heterogeneous",
+        "T1W_FS_CE_signal_drop": "Not applicable",
+        "T1W_FS_CE_pattern": "Not specified",
+        "Soft Tissue Invasion": "Not specified",
+        "perilesional_edema_T1W": "absence",
+        "perilesional_edema_fluid_sensitive": "absence"
+      }```
+
+  - input: |
+      anonymized for github
+    reasoning: |
+      - The report describes a well-circumscribed round lesion measuring 2.1x1.8 cm, which converts to 21x18 mm; "Max Diameter" is "21x18 mm" and "Max Diameter (longest axis, mm)" is "21".
+      - The lesion is described as "round, well-defined", so "Shape" is "Round/Oval".
+      - The report states the lesion is markedly hyperintense on T1 sequences, consistent with fat content; "T1W_intensity" is "hyperintense".
+      - No fluid-sensitive sequence description is provided, so "fluid_sensitive_intensity" and "fluid_sensitive_pattern" are "Not specified".
+      - Because T1W_intensity is hyperintense, the signal-drop question applies: the report notes signal suppression on fat-saturated post-contrast T1W compared to plain T1W, consistent with fat; "T1W_FS_CE_signal_drop" is "Yes"; since this branch applies, "T1W_FS_CE_pattern" is "Not applicable".
+      - No mention of adjacent soft tissue or marrow edema; "Soft Tissue Invasion", "perilesional_edema_T1W", and "perilesional_edema_fluid_sensitive" are all "Not specified".
+    output: |
+      ```json
+      {
+        "Max Diameter": "21x18 mm",
+        "Max Diameter (longest axis, mm)": "21",
+        "Shape": "Round/Oval",
+        "T1W_intensity": "hyperintense",
+        "fluid_sensitive_intensity": "Not specified",
+        "fluid_sensitive_pattern": "Not specified",
+        "T1W_FS_CE_signal_drop": "Yes",
+        "T1W_FS_CE_pattern": "Not applicable",
+        "Soft Tissue Invasion": "Not specified",
+        "perilesional_edema_T1W": "Not specified",
+        "perilesional_edema_fluid_sensitive": "Not specified"
+      }```
