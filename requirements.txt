@@ -16,3 +16,4 @@ scipy==1.16.1
 seaborn==0.13.2
 sentence_transformers==5.0.0
 tqdm==4.67.1
+vllm==0.10.0
