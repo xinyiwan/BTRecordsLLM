@@ -29,17 +29,34 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+import yaml
+
 from server import DEFAULT_CSV, META_COLS, load_csv, parse_final_output, patient_summary
 
 VERDICTS = ("correct", "incorrect", "not_in_report")
 
 ROWS: list[dict] = []
-REVIEWS: dict[str, dict[str, str]] = {}
+# Per field, review is {"verdict": "correct"|"incorrect"|"not_in_report", "corrected_value": str|None}.
+REVIEWS: dict[str, dict[str, dict]] = {}
 REVIEWS_PATH: Path = None  # type: ignore[assignment]
 REVIEWS_LOCK = threading.Lock()
+# Per field, the allowed label options declared in the prompt-config YAML (if any).
+FIELD_OPTIONS: dict[str, list[str]] = {}
 
 
-def load_reviews(path: Path) -> dict[str, dict[str, str]]:
+def load_field_options(config_path: Path | None) -> dict[str, list[str]]:
+    if not config_path:
+        return {}
+    with config_path.open(encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+    options = {}
+    for field in config.get("field_instructions", []):
+        if field.get("options"):
+            options[field["name"]] = field["options"]
+    return options
+
+
+def load_reviews(path: Path) -> dict[str, dict[str, dict]]:
     if not path.exists():
         return {}
     try:
@@ -47,11 +64,20 @@ def load_reviews(path: Path) -> dict[str, dict[str, str]]:
             raw = json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
-    # Back-compat: earlier versions stored True/False instead of the
-    # correct/incorrect/not_in_report strings.
+    # Back-compat: earlier versions stored True/False, then bare
+    # correct/incorrect/not_in_report strings, instead of
+    # {"verdict": ..., "corrected_value": ...} objects.
+    def normalize(v):
+        if v is True:
+            return {"verdict": "correct", "corrected_value": None}
+        if v is False:
+            return {"verdict": "incorrect", "corrected_value": None}
+        if isinstance(v, str):
+            return {"verdict": v, "corrected_value": None}
+        return v
+
     return {
-        idx: {field: ("correct" if v is True else "incorrect" if v is False else v)
-              for field, v in fields.items()}
+        idx: {field: normalize(v) for field, v in fields.items()}
         for idx, fields in raw.items()
     }
 
@@ -75,7 +101,7 @@ def row_progress(idx: int) -> dict:
     total = len(fields_for_row(idx))
     review = REVIEWS.get(str(idx), {})
     reviewed = len(review)
-    correct = sum(1 for v in review.values() if v == "correct")
+    correct = sum(1 for v in review.values() if v.get("verdict") == "correct")
     return {"total": total, "reviewed": reviewed, "correct": correct}
 
 
@@ -103,7 +129,7 @@ def compute_stats() -> dict:
                 f, {"reviewed": 0, "correct": 0, "incorrect": 0, "not_in_report": 0, "total": 0}
             )
             stat["total"] += 1
-            verdict = review.get(f)
+            verdict = (review.get(f) or {}).get("verdict")
             if verdict in VERDICTS:
                 total_reviewed += 1
                 stat["reviewed"] += 1
@@ -250,6 +276,10 @@ INDEX_HTML = r"""<!doctype html>
   .verdict-btn.correct.active { background: var(--good-soft); color: var(--good); border-color: var(--good); }
   .verdict-btn.incorrect.active { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
   .verdict-btn.not_in_report.active { background: #f1f5f9; color: #475569; border-color: #94a3b8; }
+  .correction { margin-top: 6px; }
+  .correction select, .correction input[type="text"] {
+    font-size: 12px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; min-width: 220px;
+  }
   .badge {
     display: inline-block; background: var(--accent-soft); color: var(--accent);
     padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-right: 4px;
@@ -279,10 +309,16 @@ const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;"
 
 let patients = [];
 let activeIdx = null;
+let fieldOptions = {};
 
 async function loadStats() {
   const res = await fetch("/api/stats");
   return res.json();
+}
+
+async function loadFieldOptions() {
+  const res = await fetch("/api/field-options");
+  fieldOptions = await res.json();
 }
 
 async function loadPatients() {
@@ -335,16 +371,42 @@ async function refreshSidebarProgress(idx, progress) {
   renderList(document.getElementById("filter").value);
 }
 
-async function setVerdict(idx, field, verdict) {
+async function setVerdict(idx, field, verdict, correctedValue) {
   const res = await fetch(`/api/review/${idx}`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({field, verdict}),
+    body: JSON.stringify({field, verdict, corrected_value: correctedValue ?? null}),
   });
   const data = await res.json();
   refreshSidebarProgress(idx, data.progress);
   updateStatsPanel();
   return data;
+}
+
+function renderCorrectionInput(field, verdict, correctedValue) {
+  // Correction picker only makes sense once the reviewer has flagged the predicted
+  // label as wrong (incorrect) or absent (not_in_report); "correct" reuses the
+  // predicted value as-is, so no extra input is shown.
+  if (verdict !== "incorrect" && verdict !== "not_in_report") return "";
+  const options = fieldOptions[field];
+  const cv = correctedValue ?? "";
+  if (options) {
+    const opts = options.map(o =>
+      `<option value="${escapeHtml(o)}" ${o === cv ? "selected" : ""}>${escapeHtml(o)}</option>`
+    ).join("");
+    return `
+      <div class="correction">
+        <select class="correction-input" data-field="${escapeHtml(field)}">
+          <option value="" ${cv === "" ? "selected" : ""}>— correct label —</option>
+          ${opts}
+        </select>
+      </div>`;
+  }
+  return `
+    <div class="correction">
+      <input type="text" class="correction-input" data-field="${escapeHtml(field)}"
+             placeholder="correct value (optional)" value="${escapeHtml(cv)}">
+    </div>`;
 }
 
 function renderReviewTable(idx, obj, review) {
@@ -360,7 +422,9 @@ function renderReviewTable(idx, obj, review) {
     } else {
       rendered = escapeHtml(v);
     }
-    const verdict = review[k]; // "correct", "incorrect", "not_in_report", or undefined
+    const entry = review[k]; // {verdict, corrected_value} or undefined
+    const verdict = entry ? entry.verdict : undefined;
+    const correctedValue = entry ? entry.corrected_value : null;
     const fieldKey = escapeHtml(k).replace(/"/g, "&quot;");
     return `
       <tr data-field="${fieldKey}">
@@ -372,6 +436,7 @@ function renderReviewTable(idx, obj, review) {
             <button class="verdict-btn incorrect ${verdict === "incorrect" ? "active" : ""}" data-verdict="incorrect">Incorrect</button>
             <button class="verdict-btn not_in_report ${verdict === "not_in_report" ? "active" : ""}" data-verdict="not_in_report">Not in report</button>
           </div>
+          <div class="correction-slot">${renderCorrectionInput(k, verdict, correctedValue)}</div>
         </td>
       </tr>`;
   }).join("");
@@ -385,11 +450,31 @@ function renderReviewTable(idx, obj, review) {
 function attachVerdictHandlers(idx) {
   document.querySelectorAll("table.review tbody tr").forEach(tr => {
     const field = tr.dataset.field;
+    const slot = tr.querySelector(".correction-slot");
+
+    const currentCorrection = () => {
+      const input = slot.querySelector(".correction-input");
+      return input ? input.value : null;
+    };
+    const attachCorrectionHandler = () => {
+      const input = slot.querySelector(".correction-input");
+      if (input) {
+        input.addEventListener("change", () => {
+          const verdict = tr.querySelector(".verdict-btn.active")?.dataset.verdict;
+          if (verdict) setVerdict(idx, field, verdict, input.value || null);
+        });
+      }
+    };
+    attachCorrectionHandler();
+
     tr.querySelectorAll(".verdict-btn").forEach(btn => {
       btn.addEventListener("click", async () => {
-        await setVerdict(idx, field, btn.dataset.verdict);
+        const verdict = btn.dataset.verdict;
+        await setVerdict(idx, field, verdict, verdict === "correct" ? null : currentCorrection());
         tr.querySelectorAll(".verdict-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
+        slot.innerHTML = renderCorrectionInput(field, verdict, verdict === "correct" ? null : currentCorrection());
+        attachCorrectionHandler();
       });
     });
   });
@@ -460,7 +545,7 @@ function insertStatsPanel() {
 
 insertStatsPanel();
 updateStatsPanel();
-loadPatients();
+loadFieldOptions().then(loadPatients);
 </script>
 </body>
 </html>
@@ -504,6 +589,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/stats":
             return self._send_json(compute_stats())
 
+        if path == "/api/field-options":
+            return self._send_json(FIELD_OPTIONS)
+
         if path.startswith("/api/patient/"):
             try:
                 idx = int(path.rsplit("/", 1)[-1])
@@ -529,6 +617,7 @@ class Handler(BaseHTTPRequestHandler):
                 payload = json.loads(self.rfile.read(length) or b"{}")
                 field = payload["field"]
                 verdict = payload["verdict"]
+                corrected_value = payload.get("corrected_value") or None
             except (json.JSONDecodeError, KeyError, ValueError):
                 return self._send_json({"error": "bad request"}, HTTPStatus.BAD_REQUEST)
 
@@ -537,9 +626,20 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json({"error": f"unknown field '{field}' for row {idx}"}, HTTPStatus.BAD_REQUEST)
             if verdict not in VERDICTS:
                 return self._send_json({"error": f"verdict must be one of {VERDICTS}"}, HTTPStatus.BAD_REQUEST)
+            if verdict == "correct":
+                # The predicted label is already correct; any corrected_value is ignored.
+                corrected_value = None
+            field_options = FIELD_OPTIONS.get(field)
+            if corrected_value is not None and field_options and corrected_value not in field_options:
+                return self._send_json(
+                    {"error": f"corrected_value must be one of {field_options}"}, HTTPStatus.BAD_REQUEST
+                )
 
             with REVIEWS_LOCK:
-                REVIEWS.setdefault(str(idx), {})[field] = verdict
+                REVIEWS.setdefault(str(idx), {})[field] = {
+                    "verdict": verdict,
+                    "corrected_value": corrected_value,
+                }
                 save_reviews_locked()
 
             return self._send_json({"ok": True, "progress": row_progress(idx)})
@@ -552,6 +652,10 @@ def main():
     ap.add_argument("-f", "--file", default=str(DEFAULT_CSV), help="CSV produced by run.py")
     ap.add_argument("-r", "--reviews-file", default=None,
                      help="Path to JSON file storing review verdicts (default: <csv>.reviews.json next to the CSV)")
+    ap.add_argument("-c", "--config", default=None,
+                     help="Path to the prompt-config YAML used to produce this CSV (e.g. "
+                          "resources/prompt_configs/Use_Case_BT_Imaging_Features.yaml). When given, fields with "
+                          "an 'options' list are reviewed with a dropdown of the correct label instead of free text.")
     ap.add_argument("-p", "--port", type=int, default=8001)
     ap.add_argument("-H", "--host", default="127.0.0.1")
     args = ap.parse_args()
@@ -561,9 +665,17 @@ def main():
         print(f"CSV not found: {csv_path}", file=sys.stderr)
         sys.exit(1)
 
-    global ROWS, REVIEWS, REVIEWS_PATH
+    global ROWS, REVIEWS, REVIEWS_PATH, FIELD_OPTIONS
     ROWS = load_csv(csv_path)
     print(f"Loaded {len(ROWS)} rows from {csv_path}")
+
+    config_path = Path(args.config) if args.config else None
+    if config_path and not config_path.exists():
+        print(f"Config not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+    FIELD_OPTIONS = load_field_options(config_path)
+    if config_path:
+        print(f"Loaded label options for {len(FIELD_OPTIONS)} fields from {config_path}")
 
     REVIEWS_PATH = Path(args.reviews_file) if args.reviews_file else csv_path.with_suffix(".reviews.json")
     REVIEWS = load_reviews(REVIEWS_PATH)
