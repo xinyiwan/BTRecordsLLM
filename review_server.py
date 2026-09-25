@@ -11,11 +11,13 @@ Run:
     python3 review_server.py -f path/to/output.csv -r path/to/reviews.json
 
 For each row, the page shows the extracted fields from final_output as a
-table with a Correct/Incorrect toggle per field. Verdicts are saved
-immediately on click. The sidebar shows per-row progress (n/total fields
-reviewed) and the top of the page shows overall stats: total reports,
-reports with at least one reviewed field, reports fully reviewed, and
-correct/reviewed counts (overall and per field).
+table with a Correct / Incorrect / Not in report toggle per field ("Not in
+report" for values the model produced -- often copied from the few-shot
+example -- that aren't actually supported by this report's text). Verdicts
+are saved immediately on click. The sidebar shows per-row progress (n/total
+fields reviewed) and the top of the page shows overall stats: total
+reports, reports with at least one reviewed field, reports fully reviewed,
+and correct/incorrect/not-in-report counts (overall and per field).
 """
 
 import argparse
@@ -29,20 +31,29 @@ from urllib.parse import urlparse
 
 from server import DEFAULT_CSV, META_COLS, load_csv, parse_final_output, patient_summary
 
+VERDICTS = ("correct", "incorrect", "not_in_report")
+
 ROWS: list[dict] = []
-REVIEWS: dict[str, dict[str, bool]] = {}
+REVIEWS: dict[str, dict[str, str]] = {}
 REVIEWS_PATH: Path = None  # type: ignore[assignment]
 REVIEWS_LOCK = threading.Lock()
 
 
-def load_reviews(path: Path) -> dict[str, dict[str, bool]]:
+def load_reviews(path: Path) -> dict[str, dict[str, str]]:
     if not path.exists():
         return {}
     try:
         with path.open(encoding="utf-8") as f:
-            return json.load(f)
+            raw = json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
+    # Back-compat: earlier versions stored True/False instead of the
+    # correct/incorrect/not_in_report strings.
+    return {
+        idx: {field: ("correct" if v is True else "incorrect" if v is False else v)
+              for field, v in fields.items()}
+        for idx, fields in raw.items()
+    }
 
 
 def save_reviews_locked() -> None:
@@ -64,7 +75,7 @@ def row_progress(idx: int) -> dict:
     total = len(fields_for_row(idx))
     review = REVIEWS.get(str(idx), {})
     reviewed = len(review)
-    correct = sum(1 for v in review.values() if v is True)
+    correct = sum(1 for v in review.values() if v == "correct")
     return {"total": total, "reviewed": reviewed, "correct": correct}
 
 
@@ -75,6 +86,8 @@ def compute_stats() -> dict:
     total_fields = 0
     total_reviewed = 0
     total_correct = 0
+    total_incorrect = 0
+    total_not_in_report = 0
     per_field: dict[str, dict[str, int]] = {}
 
     for idx in range(total_reports):
@@ -86,14 +99,21 @@ def compute_stats() -> dict:
         if fields and all(f in review for f in fields):
             reports_complete += 1
         for f in fields:
-            stat = per_field.setdefault(f, {"reviewed": 0, "correct": 0, "total": 0})
+            stat = per_field.setdefault(
+                f, {"reviewed": 0, "correct": 0, "incorrect": 0, "not_in_report": 0, "total": 0}
+            )
             stat["total"] += 1
-            if f in review:
+            verdict = review.get(f)
+            if verdict in VERDICTS:
                 total_reviewed += 1
                 stat["reviewed"] += 1
-                if review[f] is True:
+                stat[verdict] += 1
+                if verdict == "correct":
                     total_correct += 1
-                    stat["correct"] += 1
+                elif verdict == "incorrect":
+                    total_incorrect += 1
+                else:
+                    total_not_in_report += 1
 
     return {
         "total_reports": total_reports,
@@ -102,6 +122,8 @@ def compute_stats() -> dict:
         "total_fields": total_fields,
         "total_reviewed": total_reviewed,
         "total_correct": total_correct,
+        "total_incorrect": total_incorrect,
+        "total_not_in_report": total_not_in_report,
         "per_field": per_field,
     }
 
@@ -227,6 +249,7 @@ INDEX_HTML = r"""<!doctype html>
   }
   .verdict-btn.correct.active { background: var(--good-soft); color: var(--good); border-color: var(--good); }
   .verdict-btn.incorrect.active { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+  .verdict-btn.not_in_report.active { background: #f1f5f9; color: #475569; border-color: #94a3b8; }
   .badge {
     display: inline-block; background: var(--accent-soft); color: var(--accent);
     padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-right: 4px;
@@ -312,11 +335,11 @@ async function refreshSidebarProgress(idx, progress) {
   renderList(document.getElementById("filter").value);
 }
 
-async function setVerdict(idx, field, correct) {
+async function setVerdict(idx, field, verdict) {
   const res = await fetch(`/api/review/${idx}`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({field, correct}),
+    body: JSON.stringify({field, verdict}),
   });
   const data = await res.json();
   refreshSidebarProgress(idx, data.progress);
@@ -337,7 +360,7 @@ function renderReviewTable(idx, obj, review) {
     } else {
       rendered = escapeHtml(v);
     }
-    const verdict = review[k]; // true, false, or undefined
+    const verdict = review[k]; // "correct", "incorrect", "not_in_report", or undefined
     const fieldKey = escapeHtml(k).replace(/"/g, "&quot;");
     return `
       <tr data-field="${fieldKey}">
@@ -345,8 +368,9 @@ function renderReviewTable(idx, obj, review) {
         <td class="field-value">${rendered}</td>
         <td>
           <div class="verdict-btns">
-            <button class="verdict-btn correct ${verdict === true ? "active" : ""}" data-verdict="true">Correct</button>
-            <button class="verdict-btn incorrect ${verdict === false ? "active" : ""}" data-verdict="false">Incorrect</button>
+            <button class="verdict-btn correct ${verdict === "correct" ? "active" : ""}" data-verdict="correct">Correct</button>
+            <button class="verdict-btn incorrect ${verdict === "incorrect" ? "active" : ""}" data-verdict="incorrect">Incorrect</button>
+            <button class="verdict-btn not_in_report ${verdict === "not_in_report" ? "active" : ""}" data-verdict="not_in_report">Not in report</button>
           </div>
         </td>
       </tr>`;
@@ -363,8 +387,7 @@ function attachVerdictHandlers(idx) {
     const field = tr.dataset.field;
     tr.querySelectorAll(".verdict-btn").forEach(btn => {
       btn.addEventListener("click", async () => {
-        const correct = btn.dataset.verdict === "true";
-        await setVerdict(idx, field, correct);
+        await setVerdict(idx, field, btn.dataset.verdict);
         tr.querySelectorAll(".verdict-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
       });
@@ -421,6 +444,8 @@ async function updateStatsPanel() {
     <div><span>Reports fully reviewed</span><b>${s.reports_complete}</b></div>
     <div><span>Fields reviewed</span><b>${s.total_reviewed} / ${s.total_fields}</b></div>
     <div><span>Correct</span><b>${s.total_correct} / ${s.total_reviewed}</b></div>
+    <div><span>Incorrect</span><b>${s.total_incorrect} / ${s.total_reviewed}</b></div>
+    <div><span>Not in report</span><b>${s.total_not_in_report} / ${s.total_reviewed}</b></div>
   `;
 }
 
@@ -503,16 +528,18 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 payload = json.loads(self.rfile.read(length) or b"{}")
                 field = payload["field"]
-                correct = bool(payload["correct"])
+                verdict = payload["verdict"]
             except (json.JSONDecodeError, KeyError, ValueError):
                 return self._send_json({"error": "bad request"}, HTTPStatus.BAD_REQUEST)
 
             valid_fields = fields_for_row(idx)
             if field not in valid_fields:
                 return self._send_json({"error": f"unknown field '{field}' for row {idx}"}, HTTPStatus.BAD_REQUEST)
+            if verdict not in VERDICTS:
+                return self._send_json({"error": f"verdict must be one of {VERDICTS}"}, HTTPStatus.BAD_REQUEST)
 
             with REVIEWS_LOCK:
-                REVIEWS.setdefault(str(idx), {})[field] = correct
+                REVIEWS.setdefault(str(idx), {})[field] = verdict
                 save_reviews_locked()
 
             return self._send_json({"ok": True, "progress": row_progress(idx)})
