@@ -2,7 +2,7 @@ field_instructions:
   - name: "Max Diameter"
     type: "string"
     constraints: |
-      Report the full set of dimensions exactly as given in the report, in the format AxBxC mm (or AxB mm if only two dimensions are given).
+      Report the full set of dimensions exactly as given in the report, in the format AxBxC mm (or AxB mm or Amm if only two or even one dimensions are given).
       All values must be converted to millimeters. If the report gives dimensions in cm, multiply by 10 and convert to mm.
       If multiple lesions/measurements are described, use the dimensions of the primary/target lesion (the one being characterized for the other imaging features below).
       Use "Not specified" if no measurement is given for the target lesion.
@@ -46,6 +46,10 @@ field_instructions:
       hyperintense: much higher (brighter) than normal muscle.
       hypo-to-isointense: slightly higher than normal muscle, clearly brighter than muscle but well short of fat/marrow brightness.
       hypointense: similar to or darker than normal muscle.
+      The report does not need to explicitly name the sequence for this to count -- a signal description in the findings for this lesion is 
+      normally understood to be T1W unless the report itself labels it otherwise (e.g. explicitly as a fluid-sensitive or post-contrast sequence). 
+      Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion or which sequence the description refers to 
+      (e.g. it could equally apply to a separately described structure, or the report mixes sequences without clear attribution).
       Use "Not specified" if the report does not describe T1 signal for this lesion.
     default: "Not specified"
     chain_order: 3
@@ -62,6 +66,9 @@ field_instructions:
       hypo-to-isointense: similar to or slightly higher than normal muscle, clearly below the brightness of simple fluid.
       isointense-to-hyperintense: brighter than normal muscle and approaching, but not equal to, the brightness of simple fluid.
       hyperintense: comparable to that of simple fluid (e.g. joint fluid or CSF).
+      The report does not need to explicitly name the sequence for this to count -- if the finding is clearly described as a fluid-sensitive-type signal for this lesion 
+      (e.g. described alongside PD/T2/STIR findings, or as the "brightness on fluid-sensitive images"), that is sufficient even without an explicit sequence label. 
+      Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion or which sequence the description refers to.
       Use "Not specified" if the report does not describe fluid-sensitive signal for this lesion.
     default: "Not specified"
     chain_order: 3
@@ -76,6 +83,8 @@ field_instructions:
       Pattern of signal on fluid-sensitive sequences (fat-suppressed T2-weighted, STIR, or PD-weighted).
       heterogeneous: patchy, mixed, or non-uniform signal intensity.
       homogenous: uniform signal throughout the lesion.
+      The report does not need to explicitly name the sequence for this to count -- if the pattern is clearly described alongside the fluid-sensitive signal findings for this lesion, 
+      that is sufficient. Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion or which sequence the description refers to.
       Use "Not specified" if the report does not describe this.
     default: "Not specified"
     chain_order: 3
@@ -92,6 +101,9 @@ field_instructions:
       Yes: signal drops on T1W-FS-CE compared with T1W.
       No: no signal drop on T1W-FS-CE compared with T1W.
       Use "Not applicable" if the lesion is not T1W-hyperintense.
+      The report does not need to explicitly name the sequence for this to count -- a clearly described drop (or lack of drop) in signal after contrast/fat-saturation 
+      for this lesion is sufficient even without an explicit sequence label. 
+      Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion or which sequence/comparison the description refers to.
       Use "Not specified" if fat-suppressed post-contrast T1W is not described.
     default: "Not specified"
     chain_order: 4
@@ -110,6 +122,9 @@ field_instructions:
       Homogenous (fluid-like): uniform enhancement throughout the lesion.
       No enhancement: no detectable increase in signal within the lesion after contrast.
       Use "Not applicable" if the lesion is T1W-hyperintense.
+      The report does not need to explicitly name the sequence for this to count -- a clearly described post-contrast enhancement pattern for this lesion 
+      (e.g. "peripheral enhancement", "heterogeneous enhancement") is sufficient even without an explicit sequence label. 
+      Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion the enhancement description refers to.
       Use "Not specified" if not described.
     default: "Not specified"
     chain_order: 4
@@ -121,7 +136,13 @@ field_instructions:
       - "No"
       - "Not specified"
     constraints: |
-      Hyperintensity in the muscle or fascia adjacent to the tumor on fluid-sensitive sequences (T2-FS or STIR), reflecting peritumoral soft-tissue edema.
+      Hyperintensity in the muscle or fascia adjacent to the tumor on fluid-sensitive sequences (T2-FS or STIR), reflecting peritumoral soft-tissue edema, 
+      OR a soft-tissue mass/component clearly described as extending into or involving adjacent muscle or fascia 
+      (e.g. "involvement of the perilesional muscular fascia and the vastus medialis and lateralis muscles").
+      The report does not need to explicitly name the sequence, or even use signal-intensity language, for this to count -- 
+      a clearly described extension/involvement of adjacent muscle or fascia is sufficient on its own. 
+      Be conservative and use "Not specified" only when it is genuinely ambiguous whether the adjacent soft tissue is actually involved 
+      (e.g. proximity is mentioned without any description of infiltration, edema, or a soft-tissue component).
       Use "Not specified" if not described.
     default: "Not specified"
     chain_order: 5
@@ -136,6 +157,9 @@ field_instructions:
       Perilesional bone marrow edema is an inflammatory reaction adjacent to the tumor. This component covers the bone marrow adjacent to the tumor on T1W.
       presence: low-to-intermediate signal on T1W around the tumor in the bone marrow.
       absence: no low-to-intermediate signal on T1W around the tumor in the bone marrow.
+      The report does not need to explicitly name the sequence for this to count -- a clearly described marrow signal change adjacent to the lesion, 
+      described alongside the T1W findings, is sufficient. Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion or 
+      which sequence the description refers to.
       Use "Not specified" if not described.
     default: "Not specified"
     chain_order: 5
@@ -147,16 +171,21 @@ field_instructions:
       - "absence"
       - "Not specified"
     constraints: |
-      Perilesional bone marrow edema is an inflammatory reaction adjacent to the tumor. This component covers the bone marrow adjacent to the tumor on fluid-sensitive sequences (T2-FS or STIR).
+      Perilesional bone marrow edema is an inflammatory reaction adjacent to the tumor. This component covers the bone marrow adjacent to the tumor 
+      on fluid-sensitive sequences (T2-FS or STIR).
       presence: high signal around the tumor in the bone marrow.
       absence: no high signal around the tumor in the bone marrow.
+      The report does not need to explicitly name the sequence for this to count -- a clearly described marrow signal change adjacent to the lesion, 
+      described alongside the fluid-sensitive findings, is sufficient. Be conservative and use "Not specified" only when it is genuinely ambiguous 
+      which lesion or which sequence the description refers to.
       Use "Not specified" if not described.
     default: "Not specified"
     chain_order: 5
 
 task: |
   The input report may be in Spanish. All output values must be in English regardless of the input language.
-  Extract imaging features for the primary/target lesion only. If a feature is not described in the report, use "Not specified" (or "Not applicable" where indicated) rather than inferring or making up a value.
+  Extract imaging features for the primary/target lesion only. If a feature is not described in the report, use "Not specified" 
+  (or "Not applicable" where indicated) rather than inferring or making up a value.
   Extract information into this exact JSON structure:
   ```json
   {
@@ -224,6 +253,32 @@ examples:
         "T1W_FS_CE_signal_drop": "Yes",
         "T1W_FS_CE_pattern": "Not applicable",
         "Soft Tissue Invasion": "Not specified",
+        "perilesional_edema_T1W": "Not specified",
+        "perilesional_edema_fluid_sensitive": "Not specified"
+      }```
+
+  - input: |
+      Lesion centered in the intramedullary canal of the proximal femoral diaphysis, with cortical destruction and an associated soft tissue mass, with involvement of the perilesional muscular fascia and the external obturator, vastus medialis, and lateralis muscles. The intramedullary lesion shows predominantly peripheral enhancement, while the adjacent soft tissue mass demonstrates heterogeneous and peripheral enhancement. No prior imaging available for comparison.
+    reasoning: |
+      - No dimensions are given for the lesion in this excerpt, so "Max Diameter" and "Max Diameter (longest axis, mm)" are "Not specified".
+      - No contour/margin descriptor (round, lobulated, irregular) is given, so "Shape" is "Not specified".
+      - No plain T1W or fluid-sensitive signal description is given (only post-contrast enhancement is described), so "T1W_intensity", "fluid_sensitive_intensity", and "fluid_sensitive_pattern" are all "Not specified".
+      - The intramedullary lesion is described as T1W-hyperintense nowhere, so the signal-drop branch doesn't apply; but this isn't actually determinable either way from this excerpt, so "T1W_FS_CE_signal_drop" is "Not specified".
+      - The enhancement is not explicitly labeled as being on a fat-suppressed post-contrast T1W sequence, but "predominantly peripheral enhancement" / "heterogeneous and peripheral enhancement" is clearly a post-contrast enhancement description for this lesion, which is enough even without the sequence being named; the pattern is heterogeneous (mixed peripheral/central), so "T1W_FS_CE_pattern" is "Heterogeneous".
+      - The report explicitly describes the soft tissue mass extending into and involving the perilesional fascia and adjacent muscles (obturator, vastus medialis, vastus lateralis) -- this is a clear description of adjacent muscle/fascia involvement even though no signal-intensity or sequence language is used, so "Soft Tissue Invasion" is "Yes".
+      - No description of bone marrow signal change adjacent to the lesion is given, so both "perilesional_edema_T1W" and "perilesional_edema_fluid_sensitive" are "Not specified".
+    output: |
+      ```json
+      {
+        "Max Diameter": "Not specified",
+        "Max Diameter (longest axis, mm)": "Not specified",
+        "Shape": "Not specified",
+        "T1W_intensity": "Not specified",
+        "fluid_sensitive_intensity": "Not specified",
+        "fluid_sensitive_pattern": "Not specified",
+        "T1W_FS_CE_signal_drop": "Not specified",
+        "T1W_FS_CE_pattern": "Heterogeneous",
+        "Soft Tissue Invasion": "Yes",
         "perilesional_edema_T1W": "Not specified",
         "perilesional_edema_fluid_sensitive": "Not specified"
       }```
