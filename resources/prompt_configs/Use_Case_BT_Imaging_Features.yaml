@@ -87,6 +87,62 @@ field_instructions:
     default: "Not specified"
     chain_order: 3
 
+  - name: "Fluid/Hemorrhage"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+      - "Not specified"
+    constraints: |
+      Whether fluid or hemorrhage (e.g. fluid-fluid levels, hemosiderin, hemorrhagic content, cystic/fluid components) is identified within or associated with the lesion.
+      Yes: the report explicitly describes fluid, hemorrhage, hemosiderin, or fluid-fluid levels within/associated with the lesion.
+      No: the report explicitly states the absence of fluid/hemorrhage for the lesion (e.g. "no areas of hemorrhage... are observed").
+      Use "Not specified" if not described.
+    default: "Not specified"
+    chain_order: 3
+
+  - name: "Fat"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+      - "Not specified"
+    constraints: |
+      Whether a fat component is identified within the lesion.
+      Yes: the report explicitly describes fat/fatty content within the lesion (e.g. macroscopic fat, fat signal).
+      No: the report explicitly states the absence of a fat component for the lesion.
+      Use "Not specified" if not described.
+    default: "Not specified"
+    chain_order: 3
+
+  - name: "Fibrous Component"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+      - "Not specified"
+    constraints: |
+      Whether a fibrous component is identified within the lesion.
+      Yes: the report explicitly describes the lesion as fibrous or containing a fibrous component (e.g. "the findings correspond to a fibrous lesion").
+      No: the report explicitly states the absence of a fibrous component for the lesion.
+      Use "Not specified" if not described.
+    default: "Not specified"
+    chain_order: 3
+
+  - name: "Cartilage/Chondroid"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+      - "Not specified"
+    constraints: |
+      Whether a cartilage/chondroid component is identified within the lesion (e.g. chondroid matrix, "rings and arcs" calcifications, cartilaginous cap).
+      Yes: the report explicitly describes a cartilage/chondroid component for the lesion.
+      No: the report explicitly states the absence of a cartilage/chondroid component for the lesion.
+      Use "Not specified" if not described.
+    default: "Not specified"
+    chain_order: 3
+
   - name: "T1W_FS_CE_signal_drop"
     type: "string"
     options:
@@ -155,8 +211,9 @@ field_instructions:
       Perilesional bone marrow edema is an inflammatory reaction adjacent to the tumor. This component covers the bone marrow adjacent to the tumor on T1W.
       presence: low-to-intermediate signal on T1W around the tumor in the bone marrow.
       absence: no low-to-intermediate signal on T1W around the tumor in the bone marrow.
-      The report does not need to explicitly name the sequence for this to count -- a clearly described marrow signal change adjacent to the lesion, 
-      described alongside the T1W findings, is sufficient. Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion or 
+      The report does not need to explicitly name the sequence for this to count -- a clearly described marrow signal change adjacent to the lesion,
+      described alongside the T1W findings, is sufficient. The finding may be worded as "bone marrow edema" or simply "bone edema" -- treat these as equivalent.
+      Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion or
       which sequence the description refers to.
       Use "Not specified" if not described.
     default: "Not specified"
@@ -173,8 +230,9 @@ field_instructions:
       on fluid-sensitive sequences (T2-FS or STIR).
       presence: high signal around the tumor in the bone marrow.
       absence: no high signal around the tumor in the bone marrow.
-      The report does not need to explicitly name the sequence for this to count -- a clearly described marrow signal change adjacent to the lesion, 
-      described alongside the fluid-sensitive findings, is sufficient. Be conservative and use "Not specified" only when it is genuinely ambiguous 
+      The report does not need to explicitly name the sequence for this to count -- a clearly described marrow signal change adjacent to the lesion,
+      described alongside the fluid-sensitive findings, is sufficient. The finding may be worded as "bone marrow edema" or simply "bone edema" -- treat these as equivalent.
+      Be conservative and use "Not specified" only when it is genuinely ambiguous
       which lesion or which sequence the description refers to.
       Use "Not specified" if not described.
     default: "Not specified"
@@ -193,6 +251,10 @@ task: |
       "T1W_intensity": "",
       "fluid_sensitive_intensity": "",
       "fluid_sensitive_pattern": "",
+      "Fluid/Hemorrhage": "",
+      "Fat": "",
+      "Fibrous Component": "",
+      "Cartilage/Chondroid": "",
       "T1W_FS_CE_signal_drop": "",
       "T1W_FS_CE_pattern": "",
       "Soft Tissue Invasion": "",
@@ -211,6 +273,7 @@ examples:
       - The lesion is hypointense in T1 sequences, so "T1W_intensity" is "hypointense".
       - The lesion is hyperintense in PD and T2*GE (fluid-sensitive) sequences, so "fluid_sensitive_intensity" is "hyperintense".
       - The lesion is described as heterogeneous in PD/T2*GE, so "fluid_sensitive_pattern" is "heterogeneous".
+      - No fluid/hemorrhage, fat, fibrous, or cartilage/chondroid component is explicitly mentioned for this lesion, so "Fluid/Hemorrhage", "Fat", "Fibrous Component", and "Cartilage/Chondroid" are all "Not specified".
       - Since T1W_intensity is hypointense (not hyperintense), "T1W_FS_CE_signal_drop" is "Not applicable"; no post-contrast T1W-FS is described, so "T1W_FS_CE_pattern" is "Not specified".
       - No mention of muscle/fascia edema, so "Soft Tissue Invasion" is "Not specified".
       - The report explicitly states "without adjacent peri-lesional edema", so both "perilesional_edema_T1W" and "perilesional_edema_fluid_sensitive" are "absence".
@@ -223,6 +286,10 @@ examples:
         "T1W_intensity": "hypointense",
         "fluid_sensitive_intensity": "hyperintense",
         "fluid_sensitive_pattern": "heterogeneous",
+        "Fluid/Hemorrhage": "Not specified",
+        "Fat": "Not specified",
+        "Fibrous Component": "Not specified",
+        "Cartilage/Chondroid": "Not specified",
         "T1W_FS_CE_signal_drop": "Not applicable",
         "T1W_FS_CE_pattern": "Not specified",
         "Soft Tissue Invasion": "Not specified",
@@ -237,6 +304,7 @@ examples:
       - The lesion is described as "round, well-defined", so "Shape" is "Round/Oval".
       - The report states the lesion is markedly hyperintense on T1 sequences, consistent with fat content; "T1W_intensity" is "hyperintense".
       - No fluid-sensitive sequence description is provided, so "fluid_sensitive_intensity" and "fluid_sensitive_pattern" are "Not specified".
+      - The marked T1W hyperintensity together with the fat-saturation signal drop is consistent with a fat component, so "Fat" is "Yes"; no fluid/hemorrhage, fibrous, or cartilage/chondroid component is described, so those are "Not specified".
       - Because T1W_intensity is hyperintense, the signal-drop question applies: the report notes signal suppression on fat-saturated post-contrast T1W compared to plain T1W, consistent with fat; "T1W_FS_CE_signal_drop" is "Yes"; since this branch applies, "T1W_FS_CE_pattern" is "Not applicable".
       - No mention of adjacent soft tissue or marrow edema; "Soft Tissue Invasion", "perilesional_edema_T1W", and "perilesional_edema_fluid_sensitive" are all "Not specified".
     output: |
@@ -248,6 +316,10 @@ examples:
         "T1W_intensity": "hyperintense",
         "fluid_sensitive_intensity": "Not specified",
         "fluid_sensitive_pattern": "Not specified",
+        "Fluid/Hemorrhage": "Not specified",
+        "Fat": "Yes",
+        "Fibrous Component": "Not specified",
+        "Cartilage/Chondroid": "Not specified",
         "T1W_FS_CE_signal_drop": "Yes",
         "T1W_FS_CE_pattern": "Not applicable",
         "Soft Tissue Invasion": "Not specified",
@@ -261,6 +333,7 @@ examples:
       - No dimensions are given for the lesion in this excerpt, so "Max Diameter" and "Max Diameter (longest axis, mm)" are "Not specified".
       - No contour/margin descriptor (round, lobulated, irregular) is given, so "Shape" is "Not specified".
       - No plain T1W or fluid-sensitive signal description is given (only post-contrast enhancement is described), so "T1W_intensity", "fluid_sensitive_intensity", and "fluid_sensitive_pattern" are all "Not specified".
+      - No fluid/hemorrhage, fat, fibrous, or cartilage/chondroid component is described for this lesion, so "Fluid/Hemorrhage", "Fat", "Fibrous Component", and "Cartilage/Chondroid" are all "Not specified".
       - The intramedullary lesion is described as T1W-hyperintense nowhere, so the signal-drop branch doesn't apply; but this isn't actually determinable either way from this excerpt, so "T1W_FS_CE_signal_drop" is "Not specified".
       - The enhancement is not explicitly labeled as being on a fat-suppressed post-contrast T1W sequence, but "predominantly peripheral enhancement" / "heterogeneous and peripheral enhancement" is clearly a post-contrast enhancement description for this lesion, which is enough even without the sequence being named; the pattern is heterogeneous (mixed peripheral/central), so "T1W_FS_CE_pattern" is "Heterogeneous".
       - The report explicitly describes the soft tissue mass extending into and involving the perilesional fascia and adjacent muscles (obturator, vastus medialis, vastus lateralis) -- this is a clear description of adjacent muscle/fascia involvement even though no signal-intensity or sequence language is used, so "Soft Tissue Invasion" is "Yes".
@@ -274,6 +347,10 @@ examples:
         "T1W_intensity": "Not specified",
         "fluid_sensitive_intensity": "Not specified",
         "fluid_sensitive_pattern": "Not specified",
+        "Fluid/Hemorrhage": "Not specified",
+        "Fat": "Not specified",
+        "Fibrous Component": "Not specified",
+        "Cartilage/Chondroid": "Not specified",
         "T1W_FS_CE_signal_drop": "Not specified",
         "T1W_FS_CE_pattern": "Heterogeneous",
         "Soft Tissue Invasion": "Yes",
