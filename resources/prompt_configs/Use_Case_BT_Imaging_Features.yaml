@@ -46,8 +46,6 @@ field_instructions:
       hyperintense: much higher (brighter) than normal muscle.
       hypo-to-isointense: slightly higher than normal muscle, clearly brighter than muscle but well short of fat/marrow brightness.
       hypointense: similar to or darker than normal muscle.
-      The report does not need to explicitly name the sequence for this to count -- a signal description in the findings for this lesion is 
-      normally understood to be T1W unless the report itself labels it otherwise (e.g. explicitly as a fluid-sensitive or post-contrast sequence). 
       Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion or which sequence the description refers to 
       (e.g. it could equally apply to a separately described structure, or the report mixes sequences without clear attribution).
       Use "Not specified" if the report does not describe T1 signal for this lesion.
