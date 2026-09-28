@@ -213,8 +213,10 @@ field_instructions:
       absence: no low-to-intermediate signal on T1W around the tumor in the bone marrow.
       The report does not need to explicitly name the sequence for this to count -- a clearly described marrow signal change adjacent to the lesion,
       described alongside the T1W findings, is sufficient. The finding may be worded as "bone marrow edema" or simply "bone edema" -- treat these as equivalent.
-      Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion or
-      which sequence the description refers to.
+      A specific sequence name is NOT required when the report already states bone marrow edema/bone edema is present or absent --
+      do not use "Not specified" merely because no sequence is named; only use "Not specified" when the presence/absence of bone edema itself is not described at all.
+      Be conservative and use "Not specified" only when it is genuinely ambiguous which lesion
+      the description refers to.
       Use "Not specified" if not described.
     default: "Not specified"
     chain_order: 5
@@ -232,8 +234,10 @@ field_instructions:
       absence: no high signal around the tumor in the bone marrow.
       The report does not need to explicitly name the sequence for this to count -- a clearly described marrow signal change adjacent to the lesion,
       described alongside the fluid-sensitive findings, is sufficient. The finding may be worded as "bone marrow edema" or simply "bone edema" -- treat these as equivalent.
+      A specific sequence name is NOT required when the report already states bone marrow edema/bone edema is present or absent --
+      do not use "Not specified" merely because no sequence is named; only use "Not specified" when the presence/absence of bone edema itself is not described at all.
       Be conservative and use "Not specified" only when it is genuinely ambiguous
-      which lesion or which sequence the description refers to.
+      which lesion the description refers to.
       Use "Not specified" if not described.
     default: "Not specified"
     chain_order: 5
