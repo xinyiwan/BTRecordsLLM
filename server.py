@@ -47,7 +47,12 @@ ROWS: list[dict] = []
 
 def load_csv(path: Path) -> list[dict]:
     with path.open(newline="", encoding="utf-8") as f:
-        return list(csv.DictReader(f, delimiter=","))
+        header = f.readline()
+        f.seek(0)
+        # Some exports use ";" instead of "," as the delimiter; detect it from the
+        # header line rather than hardcoding "," and silently mis-parsing the file.
+        delimiter = ";" if header.count(";") > header.count(",") else ","
+        return list(csv.DictReader(f, delimiter=delimiter))
 
 
 _FENCE_RE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)

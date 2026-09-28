@@ -17,6 +17,20 @@ field_instructions:
     default: "Not specified"
     chain_order: 1
 
+  - name: "Progression"
+    type: "string"
+    options:
+      - "Yes"
+      - "No"
+      - "Not specified"
+    constraints: |
+      Whether the report describes the target lesion as having progressed (grown/increased/worsened) compared with a prior imaging study.
+      Yes: the report explicitly states the lesion has grown, increased in size, or otherwise progressed/worsened compared with a prior study.
+      No: the report explicitly states the lesion is stable/unchanged, or has decreased/regressed, compared with a prior study.
+      Use "Not specified" if the report does not compare this lesion to a prior study (including when no prior imaging is available for comparison).
+    default: "Not specified"
+    chain_order: 1
+
   - name: "Shape"
     type: "string"
     options:
@@ -251,6 +265,7 @@ task: |
   {
       "Max Diameter": "",
       "Max Diameter (longest axis, mm)": "",
+      "Progression": "",
       "Shape": "",
       "T1W_intensity": "",
       "fluid_sensitive_intensity": "",
@@ -277,6 +292,7 @@ examples:
       - The lesion is hypointense in T1 sequences, so "T1W_intensity" is "hypointense".
       - The lesion is hyperintense in PD and T2*GE (fluid-sensitive) sequences, so "fluid_sensitive_intensity" is "hyperintense".
       - The lesion is described as heterogeneous in PD/T2*GE, so "fluid_sensitive_pattern" is "heterogeneous".
+      - No comparison to a prior study is mentioned, so "Progression" is "Not specified".
       - No fluid/hemorrhage, fat, fibrous, or cartilage/chondroid component is explicitly mentioned for this lesion, so "Fluid/Hemorrhage", "Fat", "Fibrous Component", and "Cartilage/Chondroid" are all "Not specified".
       - Since T1W_intensity is hypointense (not hyperintense), "T1W_FS_CE_signal_drop" is "Not applicable"; no post-contrast T1W-FS is described, so "T1W_FS_CE_pattern" is "Not specified".
       - No mention of muscle/fascia edema, so "Soft Tissue Invasion" is "Not specified".
@@ -286,6 +302,7 @@ examples:
       {
         "Max Diameter": "38.4x29x19.8 mm",
         "Max Diameter (longest axis, mm)": "38.4",
+        "Progression": "Not specified",
         "Shape": "lobulated",
         "T1W_intensity": "hypointense",
         "fluid_sensitive_intensity": "hyperintense",
@@ -305,6 +322,7 @@ examples:
       anonymized for github
     reasoning: |
       - The report describes a well-circumscribed round lesion measuring 2.1x1.8 cm, which converts to 21x18 mm; "Max Diameter" is "21x18 mm" and "Max Diameter (longest axis, mm)" is "21".
+      - No comparison to a prior study is mentioned, so "Progression" is "Not specified".
       - The lesion is described as "round, well-defined", so "Shape" is "Round/Oval".
       - The report states the lesion is markedly hyperintense on T1 sequences, consistent with fat content; "T1W_intensity" is "hyperintense".
       - No fluid-sensitive sequence description is provided, so "fluid_sensitive_intensity" and "fluid_sensitive_pattern" are "Not specified".
@@ -316,6 +334,7 @@ examples:
       {
         "Max Diameter": "21x18 mm",
         "Max Diameter (longest axis, mm)": "21",
+        "Progression": "Not specified",
         "Shape": "Round/Oval",
         "T1W_intensity": "hyperintense",
         "fluid_sensitive_intensity": "Not specified",
@@ -335,6 +354,7 @@ examples:
       Lesion centered in the intramedullary canal of the proximal femoral diaphysis, with cortical destruction and an associated soft tissue mass, with involvement of the perilesional muscular fascia and the external obturator, vastus medialis, and lateralis muscles. The intramedullary lesion shows predominantly peripheral enhancement, while the adjacent soft tissue mass demonstrates heterogeneous and peripheral enhancement. No prior imaging available for comparison.
     reasoning: |
       - No dimensions are given for the lesion in this excerpt, so "Max Diameter" and "Max Diameter (longest axis, mm)" are "Not specified".
+      - The report explicitly states "No prior imaging available for comparison", so there is no comparison to a prior study and "Progression" is "Not specified".
       - No contour/margin descriptor (round, lobulated, irregular) is given, so "Shape" is "Not specified".
       - No plain T1W or fluid-sensitive signal description is given (only post-contrast enhancement is described), so "T1W_intensity", "fluid_sensitive_intensity", and "fluid_sensitive_pattern" are all "Not specified".
       - No fluid/hemorrhage, fat, fibrous, or cartilage/chondroid component is described for this lesion, so "Fluid/Hemorrhage", "Fat", "Fibrous Component", and "Cartilage/Chondroid" are all "Not specified".
@@ -347,6 +367,7 @@ examples:
       {
         "Max Diameter": "Not specified",
         "Max Diameter (longest axis, mm)": "Not specified",
+        "Progression": "Not specified",
         "Shape": "Not specified",
         "T1W_intensity": "Not specified",
         "fluid_sensitive_intensity": "Not specified",
