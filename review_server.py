@@ -103,6 +103,7 @@ def load_reviews(path: Path) -> dict[str, dict]:
                 "sip": entry.get("sip", ""),
                 "subject_code": entry.get("subject_code", ""),
                 "fields": {field: normalize_field(v) for field, v in entry["fields"].items()},
+                "notes": entry.get("notes", ""),
             }
         else:
             reviews[idx] = {
@@ -110,6 +111,7 @@ def load_reviews(path: Path) -> dict[str, dict]:
                 "sip": "",
                 "subject_code": "",
                 "fields": {field: normalize_field(v) for field, v in entry.items()},
+                "notes": "",
             }
     return reviews
 
@@ -164,6 +166,10 @@ def fields_for_row(idx: int) -> list[str]:
 
 def review_fields(idx: int) -> dict[str, dict]:
     return REVIEWS.get(str(idx), {}).get("fields", {})
+
+
+def review_notes(idx: int) -> str:
+    return REVIEWS.get(str(idx), {}).get("notes", "")
 
 
 def row_progress(idx: int) -> dict:
@@ -237,6 +243,7 @@ def patient_detail(row: dict, idx: int) -> dict:
         "final_output": final_parsed,
         "reasoning": row.get("reasoning", ""),
         "review": review_fields(idx),
+        "notes": review_notes(idx),
         "progress": row_progress(idx),
     }
 
@@ -359,6 +366,10 @@ INDEX_HTML = r"""<!doctype html>
     font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;
   }
   .section-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 18px 0 6px; }
+  #notes-input {
+    width: 100%; min-height: 80px; font-size: 13px; font-family: inherit; line-height: 1.5;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; resize: vertical;
+  }
 </style>
 </head>
 <body>
@@ -455,10 +466,13 @@ async function setVerdict(idx, field, verdict, correctedValue) {
 }
 
 function renderCorrectionInput(field, verdict, correctedValue) {
-  // Correction picker only makes sense once the reviewer has flagged the predicted
-  // label as wrong (incorrect) or absent (not_in_report); "correct" reuses the
-  // predicted value as-is, so no extra input is shown.
-  if (verdict !== "incorrect" && verdict !== "not_in_report") return "";
+  // Shown for any verdict, including "correct" -- the report itself can be wrong,
+  // so the reviewer's true label may differ from what the model extracted even
+  // when the extraction faithfully matches the (wrong) report.
+  // Fields with a declared options list (from the YAML) stay restricted to a
+  // dropdown of those options -- free text is only allowed for fields with no
+  // declared options (e.g. "Max Diameter").
+  if (!verdict) return "";
   const options = fieldOptions[field];
   const cv = correctedValue ?? "";
   if (options) {
@@ -468,7 +482,7 @@ function renderCorrectionInput(field, verdict, correctedValue) {
     return `
       <div class="correction">
         <select class="correction-input" data-field="${escapeHtml(field)}">
-          <option value="" ${cv === "" ? "selected" : ""}>— correct label —</option>
+          <option value="" ${cv === "" ? "selected" : ""}>— true label —</option>
           ${opts}
         </select>
       </div>`;
@@ -476,7 +490,7 @@ function renderCorrectionInput(field, verdict, correctedValue) {
   return `
     <div class="correction">
       <input type="text" class="correction-input" data-field="${escapeHtml(field)}"
-             placeholder="correct value (optional)" value="${escapeHtml(cv)}">
+             placeholder="true label (optional)" value="${escapeHtml(cv)}">
     </div>`;
 }
 
@@ -541,10 +555,11 @@ function attachVerdictHandlers(idx) {
     tr.querySelectorAll(".verdict-btn").forEach(btn => {
       btn.addEventListener("click", async () => {
         const verdict = btn.dataset.verdict;
-        await setVerdict(idx, field, verdict, verdict === "correct" ? null : currentCorrection());
+        const correction = currentCorrection();
+        await setVerdict(idx, field, verdict, correction);
         tr.querySelectorAll(".verdict-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        slot.innerHTML = renderCorrectionInput(field, verdict, verdict === "correct" ? null : currentCorrection());
+        slot.innerHTML = renderCorrectionInput(field, verdict, correction);
         attachCorrectionHandler();
       });
     });
@@ -586,8 +601,38 @@ function renderDetail(d) {
       <summary>Extraction reasoning</summary>
       <div class="body"><pre class="report">${escapeHtml(d.reasoning) || '<span class="na">No reasoning captured.</span>'}</pre></div>
     </details>
+
+    <details open>
+      <summary>Notes</summary>
+      <div class="body">
+        <textarea id="notes-input" placeholder="Notes about this report...">${escapeHtml(d.notes)}</textarea>
+      </div>
+    </details>
   `;
   attachVerdictHandlers(d.idx);
+  attachNotesHandler(d.idx);
+}
+
+function attachNotesHandler(idx) {
+  const textarea = document.getElementById("notes-input");
+  if (!textarea) return;
+  let timer = null;
+  textarea.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => saveNotes(idx, textarea.value), 500);
+  });
+  textarea.addEventListener("blur", () => {
+    clearTimeout(timer);
+    saveNotes(idx, textarea.value);
+  });
+}
+
+async function saveNotes(idx, notes) {
+  await fetch(`/api/notes/${idx}`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({notes}),
+  });
 }
 
 async function updateStatsPanel() {
@@ -698,9 +743,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json({"error": f"unknown field '{field}' for row {idx}"}, HTTPStatus.BAD_REQUEST)
             if verdict not in VERDICTS:
                 return self._send_json({"error": f"verdict must be one of {VERDICTS}"}, HTTPStatus.BAD_REQUEST)
-            if verdict == "correct":
-                # The predicted label is already correct; any corrected_value is ignored.
-                corrected_value = None
+            # corrected_value is allowed for any verdict, including "correct" -- the
+            # report itself can be wrong, so the reviewer's true label may differ from
+            # what the model extracted even when the extraction matches the report.
+            # Fields with a declared options list stay restricted to those options;
+            # free text is only allowed for fields with no declared options.
             field_options = FIELD_OPTIONS.get(field)
             if corrected_value is not None and field_options and corrected_value not in field_options:
                 return self._send_json(
@@ -722,6 +769,32 @@ class Handler(BaseHTTPRequestHandler):
                 save_reviews_locked()
 
             return self._send_json({"ok": True, "progress": row_progress(idx)})
+
+        if path.startswith("/api/notes/"):
+            try:
+                idx = int(path.rsplit("/", 1)[-1])
+                row = ROWS[idx]
+            except (ValueError, IndexError):
+                return self._send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                payload = json.loads(self.rfile.read(length) or b"{}")
+                notes = payload["notes"]
+            except (json.JSONDecodeError, KeyError, ValueError):
+                return self._send_json({"error": "bad request"}, HTTPStatus.BAD_REQUEST)
+
+            with REVIEWS_LOCK:
+                entry = REVIEWS.setdefault(str(idx), {
+                    "info_key": row.get("info_key", ""),
+                    "sip": row.get("sip", ""),
+                    "subject_code": subject_code_for(row),
+                    "fields": {},
+                })
+                entry["notes"] = notes
+                save_reviews_locked()
+
+            return self._send_json({"ok": True})
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
