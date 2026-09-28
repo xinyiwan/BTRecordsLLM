@@ -21,6 +21,7 @@ and correct/incorrect/not-in-report counts (overall and per field).
 """
 
 import argparse
+import csv
 import json
 import sys
 import threading
@@ -42,6 +43,22 @@ REVIEWS_PATH: Path = None  # type: ignore[assignment]
 REVIEWS_LOCK = threading.Lock()
 # Per field, the allowed label options declared in the prompt-config YAML (if any).
 FIELD_OPTIONS: dict[str, list[str]] = {}
+# (info_key, sip) -> subject_code (e.g. "BONE_AI_001"), from an optional mapping CSV.
+SUBJECT_CODES: dict[tuple[str, str], str] = {}
+
+
+def load_subject_codes(mapping_path: Path | None) -> dict[tuple[str, str], str]:
+    if not mapping_path:
+        return {}
+    with mapping_path.open(newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    return {(r["info_key"], r["sip"]): r["subject_code"] for r in rows}
+
+
+def subject_code_for(row: dict) -> str:
+    if row.get("subject_code"):
+        return row["subject_code"]
+    return SUBJECT_CODES.get((row.get("info_key", ""), row.get("sip", "")), "")
 
 
 def load_field_options(config_path: Path | None) -> dict[str, list[str]]:
@@ -56,7 +73,7 @@ def load_field_options(config_path: Path | None) -> dict[str, list[str]]:
     return options
 
 
-def load_reviews(path: Path) -> dict[str, dict[str, dict]]:
+def load_reviews(path: Path) -> dict[str, dict]:
     if not path.exists():
         return {}
     try:
@@ -67,7 +84,7 @@ def load_reviews(path: Path) -> dict[str, dict[str, dict]]:
     # Back-compat: earlier versions stored True/False, then bare
     # correct/incorrect/not_in_report strings, instead of
     # {"verdict": ..., "corrected_value": ...} objects.
-    def normalize(v):
+    def normalize_field(v):
         if v is True:
             return {"verdict": "correct", "corrected_value": None}
         if v is False:
@@ -76,10 +93,58 @@ def load_reviews(path: Path) -> dict[str, dict[str, dict]]:
             return {"verdict": v, "corrected_value": None}
         return v
 
-    return {
-        idx: {field: normalize(v) for field, v in fields.items()}
-        for idx, fields in raw.items()
-    }
+    # Back-compat: earlier versions stored {idx: {field: verdict}} directly,
+    # with no row-identifying info to detect/fix a CSV reorder.
+    reviews = {}
+    for idx, entry in raw.items():
+        if isinstance(entry, dict) and "fields" in entry:
+            reviews[idx] = {
+                "info_key": entry.get("info_key", ""),
+                "sip": entry.get("sip", ""),
+                "subject_code": entry.get("subject_code", ""),
+                "fields": {field: normalize_field(v) for field, v in entry["fields"].items()},
+            }
+        else:
+            reviews[idx] = {
+                "info_key": "",
+                "sip": "",
+                "subject_code": "",
+                "fields": {field: normalize_field(v) for field, v in entry.items()},
+            }
+    return reviews
+
+
+def realign_reviews(reviews: dict[str, dict], rows: list[dict]) -> dict[str, dict]:
+    """Re-key `reviews` by current row index, using info_key/sip/subject_code to
+    relocate entries whose row moved (e.g. the CSV was regenerated/reordered/filtered).
+    Entries with no identifying info (older files) or no match are left at their
+    original index as a best effort.
+    """
+    by_key = {}
+    by_subject = {}
+    for i, row in enumerate(rows):
+        by_key[(row.get("info_key", ""), row.get("sip", ""))] = i
+        sc = subject_code_for(row)
+        if sc:
+            by_subject[sc] = i
+
+    realigned: dict[str, dict] = {}
+    for idx, entry in reviews.items():
+        target_idx = None
+        if entry.get("subject_code") and entry["subject_code"] in by_subject:
+            target_idx = by_subject[entry["subject_code"]]
+        elif (entry.get("info_key"), entry.get("sip")) in by_key and (entry.get("info_key") or entry.get("sip")):
+            target_idx = by_key[(entry["info_key"], entry["sip"])]
+        else:
+            target_idx = int(idx) if idx.isdigit() else None
+        if target_idx is None:
+            continue
+        key = str(target_idx)
+        if key in realigned:
+            print(f"Warning: multiple review entries map to row {key}, keeping the first", file=sys.stderr)
+            continue
+        realigned[key] = entry
+    return realigned
 
 
 def save_reviews_locked() -> None:
@@ -97,9 +162,13 @@ def fields_for_row(idx: int) -> list[str]:
     return list(parsed.keys())
 
 
+def review_fields(idx: int) -> dict[str, dict]:
+    return REVIEWS.get(str(idx), {}).get("fields", {})
+
+
 def row_progress(idx: int) -> dict:
     total = len(fields_for_row(idx))
-    review = REVIEWS.get(str(idx), {})
+    review = review_fields(idx)
     reviewed = len(review)
     correct = sum(1 for v in review.values() if v.get("verdict") == "correct")
     return {"total": total, "reviewed": reviewed, "correct": correct}
@@ -118,7 +187,7 @@ def compute_stats() -> dict:
 
     for idx in range(total_reports):
         fields = fields_for_row(idx)
-        review = REVIEWS.get(str(idx), {})
+        review = review_fields(idx)
         total_fields += len(fields)
         if review:
             reports_started += 1
@@ -157,6 +226,7 @@ def compute_stats() -> dict:
 def patient_detail(row: dict, idx: int) -> dict:
     final_parsed = parse_final_output(row.get("final_output", ""))
     meta = {c: row.get(c, "") for c in META_COLS}
+    meta["subject_code"] = subject_code_for(row)
     return {
         "idx": idx,
         "meta": meta,
@@ -166,7 +236,7 @@ def patient_detail(row: dict, idx: int) -> dict:
         "final_output_raw": row.get("final_output", ""),
         "final_output": final_parsed,
         "reasoning": row.get("reasoning", ""),
-        "review": REVIEWS.get(str(idx), {}),
+        "review": review_fields(idx),
         "progress": row_progress(idx),
     }
 
@@ -338,7 +408,7 @@ function renderList(q) {
   const list = document.getElementById("patients");
   const ql = q.trim().toLowerCase();
   const filtered = !ql ? patients : patients.filter(p =>
-    [p.info_key, p.sip, p.date, p.modality, p.prestacion].some(v => String(v ?? "").toLowerCase().includes(ql))
+    [p.info_key, p.sip, p.subject_code, p.date, p.modality, p.prestacion].some(v => String(v ?? "").toLowerCase().includes(ql))
   );
   list.innerHTML = filtered.map(p => `
     <div class="patient ${p.idx === activeIdx ? "active" : ""}" data-idx="${p.idx}">
@@ -346,6 +416,7 @@ function renderList(q) {
         <span>#${escapeHtml(p.info_key)} <span style="color:var(--muted);font-weight:400">· sip ${escapeHtml(p.sip)}</span></span>
         ${progressPill(p.progress)}
       </div>
+      ${p.subject_code ? `<div class="sub"><b>${escapeHtml(p.subject_code)}</b></div>` : ""}
       <div class="sub">${escapeHtml(p.date)} · ${escapeHtml(p.modality)}</div>
       <div class="sub">${escapeHtml(p.prestacion)}</div>
     </div>
@@ -483,7 +554,7 @@ function attachVerdictHandlers(idx) {
 function renderDetail(d) {
   const m = d.meta || {};
   const metaCells = [
-    ["info_key", m.info_key], ["sip", m.sip], ["birth", m.fechaNaci],
+    ["subject_code", m.subject_code], ["info_key", m.info_key], ["sip", m.sip], ["birth", m.fechaNaci],
     ["date", m.fechaHoraRealizacion], ["modality", m.modalidad],
     ["prestacion", m.prestacionCentro], ["cancer", m.cancer], ["timepoint", m.timepoint],
   ].map(([k, v]) => `<div><span>${k}</span><b>${escapeHtml(fmt(v))}</b></div>`).join("");
@@ -582,6 +653,7 @@ class Handler(BaseHTTPRequestHandler):
             out = []
             for i, r in enumerate(ROWS):
                 summary = patient_summary(r, i)
+                summary["subject_code"] = subject_code_for(r)
                 summary["progress"] = row_progress(i)
                 out.append(summary)
             return self._send_json(out)
@@ -635,8 +707,15 @@ class Handler(BaseHTTPRequestHandler):
                     {"error": f"corrected_value must be one of {field_options}"}, HTTPStatus.BAD_REQUEST
                 )
 
+            row = ROWS[idx]
             with REVIEWS_LOCK:
-                REVIEWS.setdefault(str(idx), {})[field] = {
+                entry = REVIEWS.setdefault(str(idx), {
+                    "info_key": row.get("info_key", ""),
+                    "sip": row.get("sip", ""),
+                    "subject_code": subject_code_for(row),
+                    "fields": {},
+                })
+                entry["fields"][field] = {
                     "verdict": verdict,
                     "corrected_value": corrected_value,
                 }
@@ -656,6 +735,9 @@ def main():
                      help="Path to the prompt-config YAML used to produce this CSV (e.g. "
                           "resources/prompt_configs/Use_Case_BT_Imaging_Features.yaml). When given, fields with "
                           "an 'options' list are reviewed with a dropdown of the correct label instead of free text.")
+    ap.add_argument("-m", "--mapping", default=None,
+                     help="Path to a CSV with columns subject_code, info_key, sip. When given, each patient is "
+                          "also shown under their subject_code (e.g. BONE_AI_001).")
     ap.add_argument("-p", "--port", type=int, default=8001)
     ap.add_argument("-H", "--host", default="127.0.0.1")
     args = ap.parse_args()
@@ -665,7 +747,7 @@ def main():
         print(f"CSV not found: {csv_path}", file=sys.stderr)
         sys.exit(1)
 
-    global ROWS, REVIEWS, REVIEWS_PATH, FIELD_OPTIONS
+    global ROWS, REVIEWS, REVIEWS_PATH, FIELD_OPTIONS, SUBJECT_CODES
     ROWS = load_csv(csv_path)
     print(f"Loaded {len(ROWS)} rows from {csv_path}")
 
@@ -677,9 +759,20 @@ def main():
     if config_path:
         print(f"Loaded label options for {len(FIELD_OPTIONS)} fields from {config_path}")
 
+    mapping_path = Path(args.mapping) if args.mapping else None
+    if mapping_path and not mapping_path.exists():
+        print(f"Mapping CSV not found: {mapping_path}", file=sys.stderr)
+        sys.exit(1)
+    SUBJECT_CODES = load_subject_codes(mapping_path)
+    if mapping_path:
+        print(f"Loaded {len(SUBJECT_CODES)} subject codes from {mapping_path}")
+
     REVIEWS_PATH = Path(args.reviews_file) if args.reviews_file else csv_path.with_suffix(".reviews.json")
-    REVIEWS = load_reviews(REVIEWS_PATH)
-    print(f"Loaded review verdicts from {REVIEWS_PATH} ({sum(len(v) for v in REVIEWS.values())} fields reviewed)")
+    REVIEWS = realign_reviews(load_reviews(REVIEWS_PATH), ROWS)
+    with REVIEWS_LOCK:
+        save_reviews_locked()
+    n_fields = sum(len(entry["fields"]) for entry in REVIEWS.values())
+    print(f"Loaded review verdicts from {REVIEWS_PATH} ({n_fields} fields reviewed)")
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"Serving http://{args.host}:{args.port}  (Ctrl+C to stop)")
