@@ -357,6 +357,13 @@ INDEX_HTML = r"""<!doctype html>
   .correction select, .correction input[type="text"] {
     font-size: 12px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; min-width: 220px;
   }
+  .bulk-actions { margin-bottom: 10px; }
+  .bulk-actions button {
+    border: 1px solid var(--border); background: var(--panel); border-radius: 6px;
+    padding: 5px 12px; font-size: 12px; cursor: pointer; color: #475569;
+  }
+  .bulk-actions button:hover { background: #f1f5f9; }
+  .bulk-actions button:disabled { opacity: .5; cursor: default; }
   .badge {
     display: inline-block; background: var(--accent-soft); color: var(--accent);
     padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-right: 4px;
@@ -591,6 +598,9 @@ function renderDetail(d) {
     <details open>
       <summary>Extracted variables — review (${d.progress.reviewed}/${d.progress.total})</summary>
       <div class="body">
+        <div class="bulk-actions">
+          <button id="mark-all-nir" type="button">Mark remaining as "Not in report"</button>
+        </div>
         ${renderReviewTable(d.idx, d.final_output, d.review || {})}
         <div class="section-title">Raw final_output</div>
         <pre class="code">${escapeHtml(d.final_output_raw)}</pre>
@@ -611,6 +621,29 @@ function renderDetail(d) {
   `;
   attachVerdictHandlers(d.idx);
   attachNotesHandler(d.idx);
+  attachMarkAllHandler(d.idx);
+}
+
+function attachMarkAllHandler(idx) {
+  const btn = document.getElementById("mark-all-nir");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/review-all/${idx}`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({verdict: "not_in_report"}),
+      });
+      const data = await res.json();
+      refreshSidebarProgress(idx, data.progress);
+      updateStatsPanel();
+      const detailRes = await fetch("/api/patient/" + idx);
+      renderDetail(await detailRes.json());
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 function attachNotesHandler(idx) {
@@ -766,6 +799,36 @@ class Handler(BaseHTTPRequestHandler):
                     "verdict": verdict,
                     "corrected_value": corrected_value,
                 }
+                save_reviews_locked()
+
+            return self._send_json({"ok": True, "progress": row_progress(idx)})
+
+        if path.startswith("/api/review-all/"):
+            try:
+                idx = int(path.rsplit("/", 1)[-1])
+                row = ROWS[idx]
+            except (ValueError, IndexError):
+                return self._send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                payload = json.loads(self.rfile.read(length) or b"{}")
+                verdict = payload["verdict"]
+            except (json.JSONDecodeError, KeyError, ValueError):
+                return self._send_json({"error": "bad request"}, HTTPStatus.BAD_REQUEST)
+            if verdict not in VERDICTS:
+                return self._send_json({"error": f"verdict must be one of {VERDICTS}"}, HTTPStatus.BAD_REQUEST)
+
+            with REVIEWS_LOCK:
+                entry = REVIEWS.setdefault(str(idx), {
+                    "info_key": row.get("info_key", ""),
+                    "sip": row.get("sip", ""),
+                    "subject_code": subject_code_for(row),
+                    "fields": {},
+                })
+                for field in fields_for_row(idx):
+                    if field not in entry["fields"]:
+                        entry["fields"][field] = {"verdict": verdict, "corrected_value": None}
                 save_reviews_locked()
 
             return self._send_json({"ok": True, "progress": row_progress(idx)})
