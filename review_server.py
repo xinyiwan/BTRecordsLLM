@@ -164,6 +164,13 @@ def fields_for_row(idx: int) -> list[str]:
     return list(parsed.keys())
 
 
+def predicted_value(idx: int, field: str):
+    parsed = parse_final_output(ROWS[idx].get("final_output", ""))
+    if not isinstance(parsed, dict):
+        return None
+    return parsed.get(field)
+
+
 def review_fields(idx: int) -> dict[str, dict]:
     return REVIEWS.get(str(idx), {}).get("fields", {})
 
@@ -786,6 +793,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json(
                     {"error": f"corrected_value must be one of {field_options}"}, HTTPStatus.BAD_REQUEST
                 )
+            # "Correct" with no explicit true label means the predicted value is the
+            # true label -- record it as such rather than leaving corrected_value null,
+            # so it's usable as ground truth without re-deriving it from final_output.
+            if verdict == "correct" and corrected_value is None:
+                predicted = predicted_value(idx, field)
+                if isinstance(predicted, str):
+                    corrected_value = predicted
 
             row = ROWS[idx]
             with REVIEWS_LOCK:
