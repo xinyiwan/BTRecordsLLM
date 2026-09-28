@@ -36,6 +36,10 @@ INPUT=/projects/prjs1779/BONE-AI/subset_data/20pct/reports/kira-0515-llm-run2-in
 FORMAT=csv
 PROMPT_METHOD=ZeroShot
 TENSOR_PARALLEL_SIZE=1
+# CSV with the English translation (valoracion_en / valoracion_en_clean), keyed by
+# info_key+sip, produced separately (e.g. by working/preprocess/translate_reports.py).
+# Set to "" to skip merging a translation in.
+TRANSLATION_CSV=
 
 OUTDIR=/projects/prjs1779/BTRecordsLLM/output/pct20/v3
 OUT=$OUTDIR/imaging_features_zero_$(basename "$MODEL").csv
@@ -94,3 +98,9 @@ python run.py \
   -mc 2
 
 echo "[Done] output written to $OUT"
+
+if [ -n "$TRANSLATION_CSV" ]; then
+  OUT_EN="${OUT%.csv}-en.csv"
+  python working/postprocess/merge_translation.py -i "$OUT" -t "$TRANSLATION_CSV" -o "$OUT_EN"
+  echo "[Done] translation merged into $OUT_EN"
+fi
