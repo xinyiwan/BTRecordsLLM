@@ -192,7 +192,7 @@ def main():
 
     # Initialize appropriate adapter
     if args.format == "csv":
-        df = pd.read_csv(args.input, sep=';')
+        df = pd.read_csv(args.input)
         if args.num_rows is not None:
             df = df.head(args.num_rows).reset_index(drop=True)
             logging.info(f"[Limit] Processing only the first {len(df)} rows")

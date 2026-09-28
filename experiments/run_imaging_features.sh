@@ -32,13 +32,13 @@ REPO=/gpfs/work2/0/prjs1779/BTRecordsLLM
 MODEL=/scratch-shared/$USER/models/DeepSeek-R1-0528-Qwen3-8B
 PROMPT_CONFIG=$REPO/resources/prompt_configs/Use_Case_BT_Imaging_Features.yaml
 PARAMS_CONFIG=$REPO/resources/model_configs/DeepSeek-R1-0528-Qwen3-8B.yaml
-INPUT=/projects/prjs1779/BTRecordsLLM/data/kira-0515-en.csv
+INPUT=/projects/prjs1779/BONE-AI/subset_data/20pct/reports/kira-0515-llm-run2-in-20pct.csv
 FORMAT=csv
-PROMPT_METHOD=FewShot
+PROMPT_METHOD=ZeroShot
 TENSOR_PARALLEL_SIZE=1
 
-OUTDIR=/projects/prjs1779/BTRecordsLLM/output/imaging_features
-OUT=$OUTDIR/imaging_features_$(basename "$MODEL").csv
+OUTDIR=/projects/prjs1779/BTRecordsLLM/output/pct20/v3
+OUT=$OUTDIR/imaging_features_zero_$(basename "$MODEL").csv
 PORT=8765
 BASE_URL="http://localhost:${PORT}/v1"
 
@@ -88,7 +88,7 @@ python run.py \
   --prompt-config "$PROMPT_CONFIG" \
   --params-config "$PARAMS_CONFIG" \
   --base-url "$BASE_URL" \
-  --batch-size 8 \
+  --batch-size 32 \
   --patient-id-col sip \
   --text-col valoracion \
   -mc 2
